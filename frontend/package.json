@@ -8,6 +8,9 @@
     "build": "vite build",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "@clerk/clerk-react": "^5.22.0",
     "axios": "^1.7.9",
