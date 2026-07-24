@@ -2,9 +2,11 @@ services:
   - type: web
     name: gsc-announcement-backend
     env: node
+    # keep rootDir so Render can operate in the backend folder when supported
     rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
+    # Use explicit --prefix to ensure Render runs npm inside the backend folder
+    buildCommand: npm install --prefix backend
+    startCommand: npm start --prefix backend
     envVars:
       - key: NODE_ENV
         value: production
