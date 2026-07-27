@@ -31,6 +31,16 @@ const announcementSchema = new mongoose.Schema(
       required: [true, 'postedBy (Clerk user ID) is required'],
       trim: true,
     },
+    postedByName: {
+      type: String,
+      default: 'HOD',
+      trim: true,
+    },
+    postedByEmail: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     isPinned: {
       type: Boolean,
       default: false,
@@ -44,6 +54,11 @@ const announcementSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'PUBLISHED'],
+      default: 'PUBLISHED',
+    },
   },
   {
     timestamps: true,
@@ -55,4 +70,4 @@ announcementSchema.index({ isPinned: -1, createdAt: -1 });
 announcementSchema.index({ expiresAt: 1 });
 announcementSchema.index({ courseCodes: 1 });
 
-module.exports = mongoose.model('Announcement', announcementSchema);
+module.exports = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);

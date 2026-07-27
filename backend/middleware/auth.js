@@ -1,4 +1,4 @@
-const { clerkClient } = require('@clerk/express');
+const { getAuth, clerkClient } = require('@clerk/express');
 
 /**
  * Middleware to require a valid Clerk auth session and check that HOD is approved.
@@ -7,8 +7,12 @@ const { clerkClient } = require('@clerk/express');
  */
 const requireApprovedHod = async (req, res, next) => {
   try {
-    // @clerk/express v2+: req.auth is now a function, not a property
-    const auth = req.auth();
+    let auth;
+    if (process.env.NODE_ENV === 'test' && req.headers['x-test-user-id']) {
+      auth = { userId: req.headers['x-test-user-id'] };
+    } else {
+      auth = getAuth(req);
+    }
 
     // Check if authenticated
     if (!auth || !auth.userId) {
@@ -19,6 +23,9 @@ const requireApprovedHod = async (req, res, next) => {
     }
 
     const userId = auth.userId;
+
+    // Attach auth data to req so downstream route handlers can access req.auth.userId
+    req.auth = auth;
 
     // In test environment, if mock metadata is passed via header or session, use it
     if (process.env.NODE_ENV === 'test' && req.headers['x-test-is-approved'] !== undefined) {

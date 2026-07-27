@@ -20,10 +20,12 @@ export const getCourses = async () => {
 /**
  * Fetch public announcements with optional course and search query
  */
-export const getAnnouncements = async (course = '', search = '') => {
+export const getAnnouncements = async (course = '', search = '', startDate = '', endDate = '') => {
   const params = {};
   if (course && course !== 'ALL') params.course = course;
   if (search) params.search = search;
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
 
   const response = await api.get('/announcements', { params });
   return response.data;
@@ -90,14 +92,61 @@ export const deleteAnnouncement = async (id, getToken) => {
 };
 
 /**
- * Request signed upload signature from backend for direct Cloudinary upload
+ * Fetch all registered HOD accounts (Super-Admin)
  */
-export const getUploadSignature = async (getToken) => {
-  const token = await getToken();
-  const response = await api.post('/upload', {}, {
+export const getHodList = async (adminSecret) => {
+  const response = await api.get('/admin/hods', {
     headers: {
-      Authorization: `Bearer ${token}`,
+      'x-admin-secret': adminSecret,
     },
   });
   return response.data;
 };
+
+/**
+ * Approve or revoke an HOD account (Super-Admin)
+ */
+export const toggleHodApproval = async (userId, isApproved, adminSecret) => {
+  const response = await api.post(
+    '/admin/approve-hod',
+    { userId, isApproved },
+    {
+      headers: {
+        'x-admin-secret': adminSecret,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Assign allowed course codes to an HOD account (Super-Admin)
+ */
+export const assignHodCourses = async (userId, allowedCourses, adminSecret) => {
+  const response = await api.post(
+    '/admin/assign-courses',
+    { userId, allowedCourses },
+    {
+      headers: {
+        'x-admin-secret': adminSecret,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Fetch all announcements across college for Super-Admin Audit
+ */
+export const getAllAnnouncementsAudit = async (adminSecret) => {
+  const response = await api.get('/admin/announcements', {
+    headers: {
+      'x-admin-secret': adminSecret,
+    },
+  });
+  return response.data;
+};
+
+
+
+

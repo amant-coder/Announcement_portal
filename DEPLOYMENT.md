@@ -41,11 +41,9 @@ https://your-frontend-domain.com/admin/login
 https://your-frontend-domain.com/admin/sign-up
 ```
 
-### Cloudinary
-Create a Cloudinary account and copy:
-- cloud name
-- API key
-- API secret
+### UploadThing
+Create an UploadThing account and copy:
+- UPLOADTHING_TOKEN
 
 ## 2) Backend deployment (Render)
 
@@ -70,9 +68,7 @@ NODE_ENV=production
 MONGODB_URI=your_mongodb_atlas_uri
 CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_SECRET_KEY=your_clerk_secret_key
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+UPLOADTHING_TOKEN=your_uploadthing_token
 ADMIN_SECRET=any_strong_secret_value
 ```
 

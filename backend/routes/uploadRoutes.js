@@ -1,63 +1,107 @@
 const express = require('express');
 const router = express.Router();
-const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+const { UTApi, UTFile } = require('uploadthing/server');
 const { requireApprovedHod } = require('../middleware/auth');
 
-// Configure Cloudinary from environment variables
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// Allowed extensions and MIME types for document uploads
+const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv', 'zip'];
+const forbiddenExtensions = ['exe', 'bat', 'sh', 'php', 'js', 'html', 'htm', 'cmd', 'vbs', 'jar', 'msi', 'scr', 'ps1', 'dll'];
+
+// Multer file filter to block malicious file uploads
+const fileFilter = (req, file, cb) => {
+  const ext = (file.originalname || '').split('.').pop().toLowerCase();
+  
+  if (forbiddenExtensions.includes(ext)) {
+    return cb(new Error(`Security Restriction: Executable files (.${ext}) are not permitted.`), false);
+  }
+
+  if (!allowedExtensions.includes(ext)) {
+    return cb(new Error(`Invalid File Type: Only documents (PDF, DOCX, XLSX, PPTX, TXT) and images are allowed.`), false);
+  }
+
+  cb(null, true);
+};
+
+// Configure multer with memory storage, strict file filter, and 16 MB limit
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 16 * 1024 * 1024 }, // 16 MB max
+  fileFilter,
+});
+
+// Initialize UploadThing server API
+const utapi = new UTApi({
+  token: process.env.UPLOADTHING_TOKEN,
 });
 
 /**
  * @route   POST /api/upload
- * @desc    Generate Cloudinary signed upload parameters
+ * @desc    Upload a file to UploadThing and return the URL
  * @access  Protected (Approved HOD)
  */
-router.post('/', requireApprovedHod, (req, res) => {
+router.post('/', requireApprovedHod, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'File size exceeds maximum limit of 16MB.' });
+      }
+      return res.status(400).json({ success: false, error: 'Upload Error: ' + err.message });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
-    const timestamp = Math.round(new Date().getTime() / 1000);
-    const folder = 'gsc_announcements';
-
-    // NOTE: resource_type is a URL path param (/auto/upload), NOT a signature field.
-    // Only include params that are sent as FormData fields in the signature.
-    const paramsToSign = {
-      folder,
-      timestamp,
-    };
-
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-    if (!apiSecret || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_CLOUD_NAME) {
-      return res.json({
-        success: true,
-        mock: process.env.NODE_ENV === 'test' || !apiSecret,
-        cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'mock_cloud_name',
-        apiKey: process.env.CLOUDINARY_API_KEY || 'mock_api_key',
-        timestamp,
-        signature: 'mock_signed_signature',
-        folder,
-        resourceType: 'auto',
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file provided.',
       });
     }
 
-    const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+    if (!process.env.UPLOADTHING_TOKEN) {
+      console.warn('[Upload] UPLOADTHING_TOKEN not set — returning mock URL.');
+      return res.json({
+        success: true,
+        mock: true,
+        url: `https://utfs.io/f/mock_${Date.now()}_${req.file.originalname}`,
+      });
+    }
+
+    // Create an UploadThing-compatible file from the multer buffer
+    const utFile = new UTFile(
+      [req.file.buffer],
+      req.file.originalname,
+      { type: req.file.mimetype }
+    );
+
+    // Upload to UploadThing
+    const response = await utapi.uploadFiles([utFile]);
+
+    if (!response || !response[0] || response[0].error) {
+      const errMsg = response?.[0]?.error?.message || 'UploadThing upload failed.';
+      console.error('[Upload Error]:', errMsg);
+      return res.status(500).json({
+        success: false,
+        error: errMsg,
+      });
+    }
+
+    const { ufsUrl, name, size } = response[0].data;
 
     res.json({
       success: true,
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-      apiKey: process.env.CLOUDINARY_API_KEY,
-      timestamp,
-      signature,
-      folder,
-      resourceType: 'auto',
+      url: ufsUrl,
+      filename: name,
+      size,
     });
   } catch (error) {
     console.error('[POST /api/upload Error]:', error.message);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate upload signature.',
+      error: 'Failed to upload file.',
     });
   }
 });

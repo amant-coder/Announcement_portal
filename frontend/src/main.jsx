@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ClerkProvider } from '@clerk/clerk-react';
+import { ThemeProvider } from './context/ThemeContext';
 import App from './App';
 import './index.css';
 
@@ -10,16 +11,23 @@ const CLERK_PUBLISHABLE_KEY =
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ClerkProvider
         publishableKey={CLERK_PUBLISHABLE_KEY}
-        afterSignInUrl="/admin"
-        afterSignUpUrl="/admin"
+        afterSignOutUrl="/"
         signInUrl="/admin/login"
         signUpUrl="/admin/sign-up"
       >
-        <App />
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
       </ClerkProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
+

@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-college-gold selection:text-college-navy;
+    @apply bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-college-gold selection:text-college-navy transition-colors duration-300;
   }
 }
 
@@ -18,11 +18,31 @@
   background: #f1f5f9;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 9999px;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+@layer utilities {
+  .clip-triangle-tl { clip-path: polygon(0 0, 100% 0, 0 100%); }
+  .clip-triangle-tr { clip-path: polygon(0 0, 100% 0, 100% 100%); }
+  .clip-triangle-bl { clip-path: polygon(0 0, 0 100%, 100% 100%); }
+  .clip-triangle-br { clip-path: polygon(100% 0, 100% 100%, 0 100%); }
 }

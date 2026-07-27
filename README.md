@@ -18,7 +18,7 @@ Students can view, search, and filter announcements by course with **zero authen
   - Authenticated HOD access via Clerk.
   - **Super-Admin Approval Security**: HOD accounts default to `isApproved: false`. Login and write actions are blocked server-side until approved by a super-admin.
   - Form to create/edit announcements with multi-select course tags, pin toggle, expiration date picker, and file attachment.
-  - **Cloudinary Signed Uploads**: Files upload directly to Cloudinary using backend-signed parameters (`POST /api/upload`). No API secrets are exposed to the client.
+  - **UploadThing File Uploads**: Files upload directly through UploadThing backend service (`POST /api/upload`).
   - **Server-Side Ownership Validation**: Strict assertion (`postedBy === req.auth.userId`) on every write route.
   - **XSS Protection**: HTML content sanitized via `sanitize-html` before storing or rendering.
 
@@ -27,7 +27,7 @@ Students can view, search, and filter announcements by course with **zero authen
 ## 🛠️ Tech Stack
 
 - **Frontend**: React (Vite), Tailwind CSS, Lucide Icons, `@clerk/clerk-react`
-- **Backend**: Node.js, Express, Mongoose (MongoDB), `@clerk/express`, `cloudinary`, `sanitize-html`, `express-rate-limit`
+- **Backend**: Node.js, Express, Mongoose (MongoDB), `@clerk/express`, `uploadthing`, `sanitize-html`, `express-rate-limit`
 - **Testing**: Vitest & Supertest for backend unit/integration tests
 
 ---
@@ -47,7 +47,7 @@ Colleges/
 │   ├── routes/
 │   │   ├── courseRoutes.js          # GET /api/courses
 │   │   ├── announcementRoutes.js    # Public & Protected announcement endpoints
-│   │   ├── uploadRoutes.js          # Cloudinary signed upload generator
+│   │   ├── uploadRoutes.js          # UploadThing upload endpoint
 │   │   └── adminRoutes.js           # Super-admin HOD approval route
 │   ├── scripts/
 │   │   ├── seedCourses.js           # Seed standard college courses
@@ -61,7 +61,7 @@ Colleges/
 │   ├── src/
 │   │   ├── components/              # Navbar, Footer, AnnouncementCard, Modal, etc.
 │   │   ├── pages/                   # PublicFeed, AdminLogin, AdminSignUp, AdminDashboard
-│   │   ├── services/                # API & Cloudinary upload helpers
+│   │   ├── services/                # API & upload helpers
 │   │   ├── App.jsx
 │   │   ├── index.css                # Tailwind styling
 │   │   └── main.jsx
@@ -81,7 +81,7 @@ Colleges/
 - Node.js (v18+)
 - MongoDB server running locally (`mongodb://localhost:27017`) or a MongoDB Atlas URI.
 - Clerk Account (Publishable Key & Secret Key)
-- Cloudinary Account (Cloud Name, API Key & Secret)
+- UploadThing Account (UploadThing Token)
 
 ---
 
@@ -105,10 +105,8 @@ NODE_ENV=development
 CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
 
-# Cloudinary Credentials
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+# UploadThing Credentials
+UPLOADTHING_TOKEN=your_uploadthing_token
 
 # Super Admin Approval Secret
 ADMIN_SECRET=super_secret_admin_approval_key_123

@@ -13,6 +13,8 @@ const connectDB = async (uri) => {
     const mongoUri = uri || process.env.MONGODB_URI || 'mongodb://localhost:27017/gsc_announcements';
     const conn = await mongoose.connect(mongoUri);
     console.log(`[MongoDB Connected]: ${conn.connection.host}`);
+    const { ensureCoursesExist } = require('../utils/ensureCourses');
+    await ensureCoursesExist();
     return conn;
   } catch (error) {
     console.error(`[MongoDB Connection Error]: ${error.message}`);

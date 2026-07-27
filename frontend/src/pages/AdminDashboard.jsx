@@ -50,8 +50,12 @@ export const AdminDashboard = () => {
   };
 
   useEffect(() => {
+    // Reload user metadata from Clerk so updated course permissions take effect immediately
+    if (user && typeof user.reload === 'function') {
+      user.reload().catch((err) => console.warn('[Clerk user reload notice]:', err.message));
+    }
     fetchDashboardData();
-  }, []);
+  }, [user?.id]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -99,7 +103,7 @@ export const AdminDashboard = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full transition-colors duration-300">
       {/* Toast Notification */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg border border-emerald-500 text-xs font-bold flex items-center space-x-2 animate-bounce">
@@ -109,24 +113,35 @@ export const AdminDashboard = () => {
       )}
 
       {/* Dashboard Top Header */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-sm mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors duration-300">
         <div>
-          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-college-navy mb-1">
+          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-college-navy dark:text-college-gold mb-1">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Authenticated HOD Workspace</span>
           </div>
-          <h1 className="text-2xl font-heading font-extrabold text-college-navy">
+          <h1 className="text-2xl font-heading font-extrabold text-college-navy dark:text-white">
             Department Notice Management
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Logged in as: <strong className="text-slate-800">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</strong> (Clerk ID: <code className="font-mono text-slate-700">{user?.id}</code>)
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Logged in as: <strong className="text-slate-800 dark:text-slate-200">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</strong> (Clerk ID: <code className="font-mono text-slate-700 dark:text-slate-300">{user?.id}</code>)
           </p>
+          {(() => {
+            const userAllowedCourses = user?.publicMetadata?.allowedCourses;
+            const isRestrictedHod = Array.isArray(userAllowedCourses) && !userAllowedCourses.includes('*');
+            const displayCourses = isRestrictedHod ? userAllowedCourses.join(', ') : 'All College Courses';
+            return (
+              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-semibold">
+                <span>Authorized Department Tag(s):</span>
+                <span className="font-bold underline">{displayCourses}</span>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex items-center space-x-3">
           <button
             onClick={fetchDashboardData}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center space-x-1.5"
+            className="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center space-x-1.5"
             title="Refresh list"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -149,20 +164,20 @@ export const AdminDashboard = () => {
       {/* My Announcements Section */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-heading font-bold text-college-textDark flex items-center gap-2">
+          <h2 className="text-base font-heading font-bold text-college-textDark dark:text-white flex items-center gap-2">
             <span>My Posted Announcements</span>
-            <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-sans font-semibold">
+            <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-0.5 rounded-full font-sans font-semibold">
               {announcements.length}
             </span>
           </h2>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Ownership server-validated on every action
           </span>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold mb-6 flex items-center gap-2">
+          <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold mb-6 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -172,16 +187,16 @@ export const AdminDashboard = () => {
         {isLoading && (
           <div className="py-16 text-center">
             <div className="w-10 h-10 border-4 border-college-navy border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs font-semibold text-slate-500">Fetching your department notices...</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Fetching your department notices...</p>
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && announcements.length === 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center max-w-lg mx-auto my-8">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center max-w-lg mx-auto my-8">
             <Bell className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800 mb-1">No Announcements Posted Yet</h3>
-            <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">
+            <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">No Announcements Posted Yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-4">
               You haven't posted any notices for your department yet. Click below to create your first announcement.
             </p>
             <button

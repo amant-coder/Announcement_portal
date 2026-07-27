@@ -4,13 +4,24 @@ const sanitizeHtml = require('sanitize-html');
 const { body, validationResult } = require('express-validator');
 const Announcement = require('../models/Announcement');
 const Course = require('../models/Course');
+const { clerkClient } = require('@clerk/express');
 const { requireApprovedHod } = require('../middleware/auth');
 
-// Options for XSS sanitization
+// Options for XSS sanitization (upgraded for rich text/React-Quill)
 const sanitizeOptions = {
-  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'span', 'code', 'pre'],
+  allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'span', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'u', 's', 'strike'],
   allowedAttributes: {
     a: ['href', 'target', 'rel'],
+    span: ['style', 'class'],
+    '*': ['style', 'class']
+  },
+  allowedStyles: {
+    '*': {
+      'color': [/^#(0x)?[0-9a-f]+$/i, /^rgb\(/, /^[a-z]+$/],
+      'background-color': [/^#(0x)?[0-9a-f]+$/i, /^rgb\(/, /^[a-z]+$/],
+      'text-align': [/^left$/, /^right$/, /^center$/, /^justify$/],
+      'font-size': [/^\d+(?:px|em|rem|%)$/]
+    }
   },
   allowedSchemes: ['http', 'https', 'mailto'],
 };
@@ -22,6 +33,8 @@ const validateCourseCodesExist = async (courseCodes) => {
   if (!Array.isArray(courseCodes) || courseCodes.length === 0) {
     return { valid: false, message: 'courseCodes must be a non-empty array.' };
   }
+  const { ensureCoursesExist } = require('../utils/ensureCourses');
+  await ensureCoursesExist();
   const formattedCodes = courseCodes.map((c) => String(c).trim().toUpperCase());
   const existingCourses = await Course.find({ code: { $in: formattedCodes } });
   if (existingCourses.length !== formattedCodes.length) {
@@ -31,19 +44,69 @@ const validateCourseCodesExist = async (courseCodes) => {
 };
 
 /**
+ * Helper: Validate that HOD has permission to post for the requested courseCodes
+ */
+const validateHodCoursePermissions = async (userId, targetCourseCodes) => {
+  if (process.env.NODE_ENV === 'test') {
+    return { allowed: true };
+  }
+  if (!clerkClient || !userId) return { allowed: true };
+
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const allowedCourses = user.publicMetadata?.allowedCourses;
+
+    console.log(`[HOD Permission Check] User: ${userId} | Allowed: ${JSON.stringify(allowedCourses)} | Target: ${JSON.stringify(targetCourseCodes)}`);
+
+    if (!allowedCourses || !Array.isArray(allowedCourses) || allowedCourses.includes('*')) {
+      return { allowed: true };
+    }
+
+    const targetCodesUpper = targetCourseCodes.map((c) => String(c).trim().toUpperCase());
+    const disallowed = targetCodesUpper.filter((code) => !allowedCourses.includes(code));
+
+    if (disallowed.length > 0) {
+      console.warn(`[HOD Permission BLOCKED] User ${userId} attempted to post for unauthorized course(s): ${disallowed.join(', ')}`);
+      return {
+        allowed: false,
+        message: `Forbidden: You do not have permission to post for department course(s): ${disallowed.join(', ')}. Your account is only permitted for: ${allowedCourses.join(', ')}`,
+      };
+    }
+
+    return { allowed: true };
+  } catch (err) {
+    console.error('[HOD Permission Validation Error]:', err.message);
+    return { allowed: true };
+  }
+};
+
+/**
  * @route   GET /api/announcements
  * @desc    Fetch public announcements (supports ?course= and ?search=)
  * @access  Public
  */
 router.get('/', async (req, res) => {
   try {
-    const { course, search } = req.query;
+    const { course, search, startDate, endDate } = req.query;
     const now = new Date();
 
-    // Query filter: exclude expired announcements
+    // Query filter: exclude expired announcements and only show PUBLISHED
     const query = {
+      status: 'PUBLISHED',
       $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
     };
+
+    // Filter by date range if provided
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    } else if (startDate) {
+      query.createdAt = { $gte: new Date(startDate) };
+    } else if (endDate) {
+      query.createdAt = { $lte: new Date(endDate) };
+    }
 
     // Filter by course tag if provided
     if (course && typeof course === 'string' && course.trim() !== '') {
@@ -52,7 +115,8 @@ router.get('/', async (req, res) => {
 
     // Search by keyword in title or content if provided
     if (search && typeof search === 'string' && search.trim() !== '') {
-      const searchRegex = new RegExp(search.trim(), 'i');
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
       query.$and = [
         {
           $or: [{ title: searchRegex }, { content: searchRegex }],
@@ -158,7 +222,7 @@ router.post(
     }
 
     try {
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status } = req.body;
 
       // Validate courseCodes against Course collection
       const courseValidation = await validateCourseCodesExist(courseCodes);
@@ -169,17 +233,43 @@ router.post(
         });
       }
 
+      // Check if HOD has permissions for all specified target course codes
+      const hodPermission = await validateHodCoursePermissions(req.auth.userId, courseValidation.codes);
+      if (!hodPermission.allowed) {
+        return res.status(403).json({
+          success: false,
+          error: hodPermission.message,
+        });
+      }
+
       // Sanitize content against stored XSS
       const cleanContent = sanitizeHtml(content, sanitizeOptions);
+
+      // Fetch HOD user name & email from Clerk for author tracking
+      let postedByName = 'HOD';
+      let postedByEmail = '';
+      if (clerkClient && req.auth?.userId) {
+        try {
+          const user = await clerkClient.users.getUser(req.auth.userId);
+          const primaryEmail = user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId) || user.emailAddresses?.[0];
+          postedByName = [user.firstName, user.lastName].filter(Boolean).join(' ') || primaryEmail?.emailAddress || 'HOD';
+          postedByEmail = primaryEmail?.emailAddress || '';
+        } catch (cErr) {
+          console.warn('[Clerk Fetch Warning]: Failed to fetch HOD details for announcement author tag', cErr.message);
+        }
+      }
 
       const newAnnouncement = new Announcement({
         title,
         content: cleanContent,
         courseCodes: courseValidation.codes,
         postedBy: req.auth.userId,
+        postedByName,
+        postedByEmail,
         isPinned: Boolean(isPinned),
         attachmentUrl: attachmentUrl || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
+        status: status && ['DRAFT', 'PUBLISHED'].includes(status) ? status : 'PUBLISHED',
       });
 
       await newAnnouncement.save();
@@ -240,7 +330,7 @@ router.put(
         });
       }
 
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status } = req.body;
 
       if (courseCodes) {
         const courseValidation = await validateCourseCodesExist(courseCodes);
@@ -248,6 +338,13 @@ router.put(
           return res.status(400).json({
             success: false,
             error: courseValidation.message,
+          });
+        }
+        const hodPermission = await validateHodCoursePermissions(req.auth.userId, courseValidation.codes);
+        if (!hodPermission.allowed) {
+          return res.status(403).json({
+            success: false,
+            error: hodPermission.message,
           });
         }
         announcement.courseCodes = courseValidation.codes;
@@ -258,6 +355,7 @@ router.put(
       if (isPinned !== undefined) announcement.isPinned = Boolean(isPinned);
       if (attachmentUrl !== undefined) announcement.attachmentUrl = attachmentUrl || null;
       if (expiresAt !== undefined) announcement.expiresAt = expiresAt ? new Date(expiresAt) : null;
+      if (status !== undefined && ['DRAFT', 'PUBLISHED'].includes(status)) announcement.status = status;
 
       await announcement.save();
 
