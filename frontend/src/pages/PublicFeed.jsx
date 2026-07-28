@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar } from 'lucide-react';
 import { getCourses, getAnnouncements } from '../services/api';
 import { getBookmarks } from '../utils/bookmarks';
 import CourseFilterChips from '../components/CourseFilterChips';
 import AnnouncementCard from '../components/AnnouncementCard';
+import { Dock } from '../components/reactbits/Dock';
+import { AnimatedBlocks } from '../components/reactbits/AnimatedBlocks';
 
 export const PublicFeed = () => {
+  const location = useLocation();
   const [courses, setCourses] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('ALL');
+  const [selectedType, setSelectedType] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -16,6 +21,38 @@ export const PublicFeed = () => {
   const [bookmarkedIds, setBookmarkedIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Sync selectedType with URL hash / search params when clicking Navbar links
+  const applyHashFilter = () => {
+    const hash = window.location.hash;
+    if (hash === '#events') {
+      setSelectedType('EVENT');
+    } else if (hash === '#notices') {
+      setSelectedType('NOTICE');
+    } else if (hash === '#timetables') {
+      setSelectedType('TIMETABLE');
+    } else if (!hash || hash === '#') {
+      // No hash means "Home" was clicked — reset to ALL
+      setSelectedType('ALL');
+    }
+  };
+
+  useEffect(() => {
+    applyHashFilter();
+    // Also check search params
+    const params = new URLSearchParams(location.search);
+    const typeParam = params.get('type');
+    if (typeParam && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(typeParam.toUpperCase())) {
+      setSelectedType(typeParam.toUpperCase());
+    }
+  }, [location.hash, location.search]);
+
+  // Listen for native hashchange events (fired by Navbar's window.location.hash = ...)
+  useEffect(() => {
+    const handleHashChange = () => applyHashFilter();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Fetch initial course options & bookmarked IDs
   useEffect(() => {
@@ -38,7 +75,7 @@ export const PublicFeed = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate);
+      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate, selectedType);
       if (res.success) {
         setAnnouncements(res.data);
       }
@@ -56,7 +93,7 @@ export const PublicFeed = () => {
     }, 300); // 300ms debounce for search input
 
     return () => clearTimeout(timer);
-  }, [selectedCourse, searchQuery, startDate, endDate]);
+  }, [selectedCourse, selectedType, searchQuery, startDate, endDate]);
 
   const handleBookmarkToggleInCard = () => {
     setBookmarkedIds(getBookmarks());
@@ -68,9 +105,9 @@ export const PublicFeed = () => {
     : announcements;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full relative">
       {/* College Hero Section */}
-      <div className="bg-gradient-to-r from-college-navy via-college-navyLight to-slate-900 rounded-2xl p-6 sm:p-10 text-white shadow-lg mb-8 relative overflow-hidden border border-college-gold/20">
+      <div id="events" className="bg-gradient-to-r from-college-navy via-college-navyLight to-slate-900 rounded-2xl p-6 sm:p-10 text-white shadow-lg mb-6 relative overflow-hidden border border-college-gold/20">
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center space-x-2 bg-college-gold/20 text-college-gold px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 border border-college-gold/30">
             <Bell className="w-3.5 h-3.5" />
@@ -82,6 +119,11 @@ export const PublicFeed = () => {
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
             All updates from Head of Departments for BMS, BCom, BAF, BBI, BFM, BSc IT, BMM, BA, and BSc students.
           </p>
+
+          {/* Interactive Block Grid */}
+          <div className="mt-6 max-w-md">
+            <AnimatedBlocks count={12} />
+          </div>
         </div>
 
         {/* Decorative background accent */}
@@ -90,8 +132,21 @@ export const PublicFeed = () => {
         </div>
       </div>
 
+      {/* MacOS-style Dock Category Navigation */}
+      <Dock
+        activeTab={selectedType}
+        onSelect={(typeId) => setSelectedType(typeId)}
+        items={[
+          { id: 'ALL', label: 'All Notices', icon: Layers },
+          { id: 'EVENT', label: 'Events', icon: Calendar },
+          { id: 'NOTICE', label: 'Academic Notices', icon: Bell },
+          { id: 'TIMETABLE', label: 'Timetables', icon: RefreshCw },
+        ]}
+      />
+
       {/* Filter & Search Bar */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5 mb-8 space-y-4 transition-colors duration-300">
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Search Box */}
           <div className="relative flex-1">
@@ -181,7 +236,7 @@ export const PublicFeed = () => {
       </div>
 
       {/* Announcements Feed Section */}
-      <div>
+      <div id="notices">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading font-bold text-college-textDark dark:text-white flex items-center gap-2">
             <span>{showBookmarksOnly ? 'Saved Announcements' : 'Latest Notices'}</span>
@@ -240,13 +295,14 @@ export const PublicFeed = () => {
 
         {/* Announcement Grid */}
         {!isLoading && !error && displayedAnnouncements.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="columns-1 md:columns-2 gap-6 [column-fill:_balance] w-full">
             {displayedAnnouncements.map((item) => (
-              <AnnouncementCard
-                key={item._id}
-                announcement={item}
-                onBookmarkToggle={handleBookmarkToggleInCard}
-              />
+              <div key={item._id} className="break-inside-avoid mb-6">
+                <AnnouncementCard
+                  announcement={item}
+                  onBookmarkToggle={handleBookmarkToggleInCard}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -5,6 +5,8 @@ const { authRateLimiter } = require('../middleware/rateLimiter');
 
 const crypto = require('crypto');
 
+const { body, validationResult } = require('express-validator');
+
 /**
  * Helper to verify Admin Secret header (Timing-attack resistant)
  */
@@ -122,111 +124,124 @@ router.get('/announcements', authRateLimiter, async (req, res) => {
  * @desc    Manual super-admin route to approve or reject an HOD Clerk account
  * @access  Protected by ADMIN_SECRET header
  */
-router.post('/approve-hod', authRateLimiter, async (req, res) => {
-  try {
-    if (!verifyAdminSecret(req, res)) return;
-
-    const { userId, isApproved = true } = req.body;
-
-    if (!userId || typeof userId !== 'string') {
+router.post(
+  '/approve-hod',
+  authRateLimiter,
+  [
+    body('userId').trim().notEmpty().withMessage('userId is required.'),
+    body('isApproved').optional().isBoolean().withMessage('isApproved must be a boolean.'),
+  ],
+  async (req, res) => {
+    // Validate request input BEFORE touching database/Clerk
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        error: 'userId is required.',
+        errors: errors.array().map((err) => err.msg),
       });
     }
 
-    if (!clerkClient) {
-      return res.status(500).json({
+    try {
+      if (!verifyAdminSecret(req, res)) return;
+
+      const { userId, isApproved = true } = req.body;
+
+      if (!clerkClient) {
+        return res.status(500).json({
+          success: false,
+          error: 'Clerk client not initialized.',
+        });
+      }
+
+      // Update Clerk user public metadata
+      const user = await clerkClient.users.getUser(userId);
+      const existingMetadata = user.publicMetadata || {};
+
+      const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          ...existingMetadata,
+          isApproved: Boolean(isApproved),
+        },
+      });
+
+      res.json({
+        success: true,
+        message: `HOD User ${userId} status updated to isApproved: ${Boolean(isApproved)}`,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.emailAddresses?.[0]?.emailAddress,
+          publicMetadata: updatedUser.publicMetadata,
+        },
+      });
+    } catch (error) {
+      console.error('[POST /api/admin/approve-hod Error]:', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Clerk client not initialized.',
+        error: 'Error approving HOD account: ' + error.message,
       });
     }
-
-    // Update Clerk user public metadata
-    const user = await clerkClient.users.getUser(userId);
-    const existingMetadata = user.publicMetadata || {};
-
-    const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        ...existingMetadata,
-        isApproved: Boolean(isApproved),
-      },
-    });
-
-    res.json({
-      success: true,
-      message: `HOD User ${userId} status updated to isApproved: ${Boolean(isApproved)}`,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.emailAddresses?.[0]?.emailAddress,
-        publicMetadata: updatedUser.publicMetadata,
-      },
-    });
-  } catch (error) {
-    console.error('[POST /api/admin/approve-hod Error]:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Error approving HOD account: ' + error.message,
-    });
   }
-});
+);
 
 /**
  * @route   POST /api/admin/assign-courses
  * @desc    Super-admin route to assign permitted course codes to an HOD
  * @access  Protected by ADMIN_SECRET header
  */
-router.post('/assign-courses', authRateLimiter, async (req, res) => {
-  try {
-    if (!verifyAdminSecret(req, res)) return;
-
-    const { userId, allowedCourses } = req.body;
-
-    if (!userId || typeof userId !== 'string') {
+router.post(
+  '/assign-courses',
+  authRateLimiter,
+  [
+    body('userId').trim().notEmpty().withMessage('userId is required.'),
+    body('allowedCourses').isArray().withMessage('allowedCourses must be an array of course codes.'),
+  ],
+  async (req, res) => {
+    // Validate request input BEFORE touching database/Clerk
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        error: 'userId is required.',
+        errors: errors.array().map((err) => err.msg),
       });
     }
 
-    if (!Array.isArray(allowedCourses)) {
-      return res.status(400).json({
+    try {
+      if (!verifyAdminSecret(req, res)) return;
+
+      const { userId, allowedCourses } = req.body;
+
+      if (!clerkClient) {
+        return res.status(500).json({
+          success: false,
+          error: 'Clerk client not initialized.',
+        });
+      }
+
+      const formattedCourses = allowedCourses.map((c) => String(c).trim().toUpperCase());
+
+      const user = await clerkClient.users.getUser(userId);
+      const existingMetadata = user.publicMetadata || {};
+
+      const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          ...existingMetadata,
+          allowedCourses: formattedCourses,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: `Updated course permissions for HOD ${userId}`,
+        allowedCourses: updatedUser.publicMetadata.allowedCourses,
+      });
+    } catch (error) {
+      console.error('[POST /api/admin/assign-courses Error]:', error.message);
+      res.status(500).json({
         success: false,
-        error: 'allowedCourses must be an array of course codes (e.g. ["BSCIT", "BMS"] or ["*"]).',
+        error: 'Error assigning course permissions: ' + error.message,
       });
     }
-
-    if (!clerkClient) {
-      return res.status(500).json({
-        success: false,
-        error: 'Clerk client not initialized.',
-      });
-    }
-
-    const formattedCourses = allowedCourses.map((c) => String(c).trim().toUpperCase());
-
-    const user = await clerkClient.users.getUser(userId);
-    const existingMetadata = user.publicMetadata || {};
-
-    const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        ...existingMetadata,
-        allowedCourses: formattedCourses,
-      },
-    });
-
-    res.json({
-      success: true,
-      message: `Updated course permissions for HOD ${userId}`,
-      allowedCourses: updatedUser.publicMetadata.allowedCourses,
-    });
-  } catch (error) {
-    console.error('[POST /api/admin/assign-courses Error]:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Error assigning course permissions: ' + error.message,
-    });
   }
-});
+);
 
 module.exports = router;

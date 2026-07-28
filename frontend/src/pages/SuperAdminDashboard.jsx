@@ -421,8 +421,8 @@ export const SuperAdminDashboard = () => {
                               )}
                               <div>
                                 <div className="font-bold text-slate-900 dark:text-white">{hod.fullName}</div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400">{hod.email}</div>
-                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {hod.id}</div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 break-all">{hod.email}</div>
+                                <div className="text-[10px] text-slate-400 font-mono mt-0.5 break-all">ID: {hod.id}</div>
                               </div>
                             </div>
                           </td>
@@ -614,7 +614,7 @@ export const SuperAdminDashboard = () => {
                         <td className="py-4 px-6">
                           <div>
                             <div className="font-bold text-slate-900 dark:text-white">{authorName}</div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{authorEmail}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono break-all">{authorEmail}</div>
                           </div>
                         </td>
 

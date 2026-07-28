@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const sanitizeHtml = require('sanitize-html');
-const { body, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Announcement = require('../models/Announcement');
 const Course = require('../models/Course');
 const { clerkClient } = require('@clerk/express');
@@ -36,11 +37,12 @@ const validateCourseCodesExist = async (courseCodes) => {
   const { ensureCoursesExist } = require('../utils/ensureCourses');
   await ensureCoursesExist();
   const formattedCodes = courseCodes.map((c) => String(c).trim().toUpperCase());
-  const existingCourses = await Course.find({ code: { $in: formattedCodes } });
-  if (existingCourses.length !== formattedCodes.length) {
+  const uniqueCodes = [...new Set(formattedCodes)];
+  const existingCourses = await Course.find({ code: { $in: uniqueCodes } });
+  if (existingCourses.length !== uniqueCodes.length) {
     return { valid: false, message: 'One or more specified course codes do not exist.' };
   }
-  return { valid: true, codes: formattedCodes };
+  return { valid: true, codes: uniqueCodes };
 };
 
 /**
@@ -87,37 +89,43 @@ const validateHodCoursePermissions = async (userId, targetCourseCodes) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { course, search, startDate, endDate } = req.query;
+    const { course, search, startDate, endDate, type } = req.query;
     const now = new Date();
 
     // Query filter: exclude expired announcements and only show PUBLISHED
-    const query = {
+    const queryFilter = {
       status: 'PUBLISHED',
       $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
     };
 
-    // Filter by date range if provided
-    if (startDate && endDate) {
-      query.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    } else if (startDate) {
-      query.createdAt = { $gte: new Date(startDate) };
-    } else if (endDate) {
-      query.createdAt = { $lte: new Date(endDate) };
+    // Filter by announcement type (NOTICE, EVENT, TIMETABLE) if provided
+    const categoryParam = req.query.category || req.query.type;
+    if (categoryParam && typeof categoryParam === 'string' && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(categoryParam.trim().toUpperCase())) {
+      queryFilter.type = categoryParam.trim().toUpperCase();
+    }
+
+    // Filter by date range if provided and valid
+    const parsedStart = startDate && !isNaN(Date.parse(startDate)) ? new Date(startDate) : null;
+    const parsedEnd = endDate && !isNaN(Date.parse(endDate)) ? new Date(endDate) : null;
+
+    if (parsedStart && parsedEnd) {
+      queryFilter.createdAt = { $gte: parsedStart, $lte: parsedEnd };
+    } else if (parsedStart) {
+      queryFilter.createdAt = { $gte: parsedStart };
+    } else if (parsedEnd) {
+      queryFilter.createdAt = { $lte: parsedEnd };
     }
 
     // Filter by course tag if provided
     if (course && typeof course === 'string' && course.trim() !== '') {
-      query.courseCodes = course.trim().toUpperCase();
+      queryFilter.courseCodes = course.trim().toUpperCase();
     }
 
     // Search by keyword in title or content if provided
     if (search && typeof search === 'string' && search.trim() !== '') {
       const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
-      query.$and = [
+      queryFilter.$and = [
         {
           $or: [{ title: searchRegex }, { content: searchRegex }],
         },
@@ -125,7 +133,7 @@ router.get('/', async (req, res) => {
     }
 
     // Sort: pinned first (-1), then newest created (-1)
-    const announcements = await Announcement.find(query).sort({ isPinned: -1, createdAt: -1 });
+    const announcements = await Announcement.find(queryFilter).sort({ isPinned: -1, createdAt: -1 });
 
     res.json({
       success: true,
@@ -150,7 +158,24 @@ router.get('/mine', requireApprovedHod, async (req, res) => {
   try {
     const userId = req.auth.userId;
 
-    const announcements = await Announcement.find({ postedBy: userId }).sort({ isPinned: -1, createdAt: -1 });
+    const queryFilter = { postedBy: userId };
+
+    // Fetch HOD's allowedCourses from Clerk publicMetadata to enforce department scoping
+    if (clerkClient && userId && process.env.NODE_ENV !== 'test') {
+      try {
+        const user = await clerkClient.users.getUser(userId);
+        const allowedCourses = user.publicMetadata?.allowedCourses;
+
+        if (allowedCourses && Array.isArray(allowedCourses) && !allowedCourses.includes('*')) {
+          const formattedAllowed = allowedCourses.map((c) => String(c).trim().toUpperCase());
+          queryFilter.courseCodes = { $in: formattedAllowed };
+        }
+      } catch (cErr) {
+        console.warn('[Clerk User Fetch Notice in /mine]:', cErr.message);
+      }
+    }
+
+    const announcements = await Announcement.find(queryFilter).sort({ isPinned: -1, createdAt: -1 });
 
     res.json({
       success: true,
@@ -171,32 +196,42 @@ router.get('/mine', requireApprovedHod, async (req, res) => {
  * @desc    Fetch a single announcement by ID
  * @access  Public
  */
-router.get('/:id', async (req, res) => {
-  try {
-    const announcement = await Announcement.findById(req.params.id);
-
-    if (!announcement) {
-      return res.status(404).json({
+router.get(
+  '/:id',
+  [param('id').isMongoId().withMessage('Invalid Announcement ID format.')],
+  async (req, res) => {
+    // Validate request parameter BEFORE touching database
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        error: 'Announcement not found.',
+        error: errors.array()[0].msg,
       });
     }
 
-    res.json({
-      success: true,
-      data: announcement,
-    });
-  } catch (error) {
-    if (error.kind === 'ObjectId') {
-      return res.status(400).json({ success: false, error: 'Invalid Announcement ID format.' });
+    try {
+      const announcement = await Announcement.findById(req.params.id);
+
+      if (!announcement) {
+        return res.status(404).json({
+          success: false,
+          error: 'Announcement not found.',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: announcement,
+      });
+    } catch (error) {
+      console.error('[GET /api/announcements/:id Error]:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Server error while fetching announcement.',
+      });
     }
-    console.error('[GET /api/announcements/:id Error]:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Server error while fetching announcement.',
-    });
   }
-});
+);
 
 /**
  * @route   POST /api/announcements
@@ -208,7 +243,12 @@ router.post(
   requireApprovedHod,
   [
     body('title').trim().notEmpty().withMessage('Title is required.'),
-    body('content').trim().notEmpty().withMessage('Content is required.'),
+    body('content').custom((value, { req }) => {
+      if (req.body.type !== 'TIMETABLE' && (!value || !value.trim())) {
+        throw new Error('Content is required.');
+      }
+      return true;
+    }),
     body('courseCodes').isArray({ min: 1 }).withMessage('At least one course code is required.'),
   ],
   async (req, res) => {
@@ -222,7 +262,22 @@ router.post(
     }
 
     try {
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries } = req.body;
+      
+      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
+
+      if (targetType === 'TIMETABLE') {
+        if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
+          return res.status(400).json({ success: false, error: 'timetableEntries is required and must not be empty for TIMETABLE category.' });
+        }
+        for (const entry of timetableEntries) {
+          if (!entry.subject || !entry.subject.trim()) return res.status(400).json({ success: false, error: 'Subject/Paper is required for every timetable entry.' });
+          if (!entry.date || isNaN(Date.parse(entry.date))) return res.status(400).json({ success: false, error: 'A valid Date is required for every timetable entry.' });
+          if (!entry.time || !entry.time.trim()) return res.status(400).json({ success: false, error: 'Time is required for every timetable entry.' });
+        }
+      } else if (timetableEntries) {
+        return res.status(400).json({ success: false, error: 'timetableEntries is not allowed unless type is TIMETABLE.' });
+      }
 
       // Validate courseCodes against Course collection
       const courseValidation = await validateCourseCodesExist(courseCodes);
@@ -270,6 +325,8 @@ router.post(
         attachmentUrl: attachmentUrl || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         status: status && ['DRAFT', 'PUBLISHED'].includes(status) ? status : 'PUBLISHED',
+        type: targetType,
+        timetableEntries: targetType === 'TIMETABLE' ? timetableEntries : undefined,
       });
 
       await newAnnouncement.save();
@@ -298,8 +355,14 @@ router.put(
   '/:id',
   requireApprovedHod,
   [
+    param('id').isMongoId().withMessage('Invalid Announcement ID format.'),
     body('title').optional().trim().notEmpty().withMessage('Title cannot be empty.'),
-    body('content').optional().trim().notEmpty().withMessage('Content cannot be empty.'),
+    body('content').optional().custom((value, { req }) => {
+      if (req.body.type !== 'TIMETABLE' && (value !== undefined && !String(value).trim())) {
+        throw new Error('Content cannot be empty.');
+      }
+      return true;
+    }),
     body('courseCodes').optional().isArray({ min: 1 }).withMessage('courseCodes must be a non-empty array.'),
   ],
   async (req, res) => {
@@ -330,7 +393,22 @@ router.put(
         });
       }
 
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries } = req.body;
+
+      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
+
+      if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {
+        if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
+          return res.status(400).json({ success: false, error: 'timetableEntries is required and must not be empty for TIMETABLE category.' });
+        }
+        for (const entry of timetableEntries) {
+          if (!entry.subject || !entry.subject.trim()) return res.status(400).json({ success: false, error: 'Subject/Paper is required for every timetable entry.' });
+          if (!entry.date || isNaN(Date.parse(entry.date))) return res.status(400).json({ success: false, error: 'A valid Date is required for every timetable entry.' });
+          if (!entry.time || !entry.time.trim()) return res.status(400).json({ success: false, error: 'Time is required for every timetable entry.' });
+        }
+      } else if (targetType !== 'TIMETABLE' && timetableEntries) {
+        return res.status(400).json({ success: false, error: 'timetableEntries is not allowed unless type is TIMETABLE.' });
+      }
 
       if (courseCodes) {
         const courseValidation = await validateCourseCodesExist(courseCodes);
@@ -356,6 +434,15 @@ router.put(
       if (attachmentUrl !== undefined) announcement.attachmentUrl = attachmentUrl || null;
       if (expiresAt !== undefined) announcement.expiresAt = expiresAt ? new Date(expiresAt) : null;
       if (status !== undefined && ['DRAFT', 'PUBLISHED'].includes(status)) announcement.status = status;
+      if (type !== undefined && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase())) {
+        announcement.type = String(type).toUpperCase();
+      }
+
+      if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {
+        announcement.timetableEntries = timetableEntries;
+      } else if (targetType !== 'TIMETABLE') {
+        announcement.timetableEntries = undefined;
+      }
 
       await announcement.save();
 
@@ -365,9 +452,6 @@ router.put(
         data: announcement,
       });
     } catch (error) {
-      if (error.kind === 'ObjectId') {
-        return res.status(400).json({ success: false, error: 'Invalid Announcement ID format.' });
-      }
       console.error('[PUT /api/announcements/:id Error]:', error.message);
       res.status(500).json({
         success: false,
@@ -382,41 +466,52 @@ router.put(
  * @desc    Delete an announcement (Ownership check: postedBy === req.auth.userId)
  * @access  Protected (Approved HOD)
  */
-router.delete('/:id', requireApprovedHod, async (req, res) => {
-  try {
-    const announcement = await Announcement.findById(req.params.id);
-
-    if (!announcement) {
-      return res.status(404).json({
+router.delete(
+  '/:id',
+  requireApprovedHod,
+  [param('id').isMongoId().withMessage('Invalid Announcement ID format.')],
+  async (req, res) => {
+    // Validate request input BEFORE touching database
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        error: 'Announcement not found.',
+        error: errors.array()[0].msg,
       });
     }
 
-    // Strict server-side ownership check: postedBy === current logged in user ID
-    if (announcement.postedBy !== req.auth.userId) {
-      return res.status(403).json({
+    try {
+      const announcement = await Announcement.findById(req.params.id);
+
+      if (!announcement) {
+        return res.status(404).json({
+          success: false,
+          error: 'Announcement not found.',
+        });
+      }
+
+      // Strict server-side ownership check: postedBy === current logged in user ID
+      if (announcement.postedBy !== req.auth.userId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You can only delete announcements that you created.',
+        });
+      }
+
+      await announcement.deleteOne();
+
+      res.json({
+        success: true,
+        message: 'Announcement deleted successfully.',
+      });
+    } catch (error) {
+      console.error('[DELETE /api/announcements/:id Error]:', error.message);
+      res.status(500).json({
         success: false,
-        error: 'Forbidden: You can only delete announcements that you created.',
+        error: 'Server error while deleting announcement.',
       });
     }
-
-    await announcement.deleteOne();
-
-    res.json({
-      success: true,
-      message: 'Announcement deleted successfully.',
-    });
-  } catch (error) {
-    if (error.kind === 'ObjectId') {
-      return res.status(400).json({ success: false, error: 'Invalid Announcement ID format.' });
-    }
-    console.error('[DELETE /api/announcements/:id Error]:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Server error while deleting announcement.',
-    });
   }
-});
+);
 
 module.exports = router;

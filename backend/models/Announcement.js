@@ -9,7 +9,10 @@ const announcementSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: [true, 'Announcement content is required'],
+      required: [
+        function() { return this.type !== 'TIMETABLE'; },
+        'Announcement content is required'
+      ],
     },
     courseCodes: {
       type: [String],
@@ -18,10 +21,12 @@ const announcementSchema = new mongoose.Schema(
         validator: async function (codes) {
           if (!codes || codes.length === 0) return false;
           const Course = mongoose.model('Course');
+          const normalized = codes.map((c) => String(c).trim().toUpperCase());
+          const uniqueCodes = [...new Set(normalized)];
           const count = await Course.countDocuments({
-            code: { $in: codes.map((c) => c.toUpperCase()) },
+            code: { $in: uniqueCodes },
           });
-          return count === codes.length;
+          return count === uniqueCodes.length;
         },
         message: 'One or more provided courseCodes are invalid or do not exist in the Course collection.',
       },
@@ -59,6 +64,29 @@ const announcementSchema = new mongoose.Schema(
       enum: ['DRAFT', 'PUBLISHED'],
       default: 'PUBLISHED',
     },
+    type: {
+      type: String,
+      enum: ['NOTICE', 'EVENT', 'TIMETABLE'],
+      default: 'NOTICE',
+    },
+    timetableEntries: {
+      type: [{
+        subject: { type: String, required: [true, 'Subject is required'], trim: true },
+        date: { type: Date, required: [true, 'Date is required'] },
+        time: { type: String, required: [true, 'Time is required'], trim: true },
+        room: { type: String, trim: true, default: '' },
+      }],
+      default: undefined,
+      validate: {
+        validator: function (val) {
+          if (this.type === 'TIMETABLE') {
+            return Array.isArray(val) && val.length > 0;
+          }
+          return true;
+        },
+        message: 'timetableEntries must be a non-empty array when type is TIMETABLE.',
+      },
+    },
   },
   {
     timestamps: true,
@@ -69,5 +97,6 @@ const announcementSchema = new mongoose.Schema(
 announcementSchema.index({ isPinned: -1, createdAt: -1 });
 announcementSchema.index({ expiresAt: 1 });
 announcementSchema.index({ courseCodes: 1 });
+announcementSchema.index({ type: 1 });
 
 module.exports = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);

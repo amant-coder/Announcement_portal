@@ -29,12 +29,13 @@ export const getCourses = async () => {
 /**
  * Fetch public announcements with optional course and search query
  */
-export const getAnnouncements = async (course = '', search = '', startDate = '', endDate = '') => {
+export const getAnnouncements = async (course = '', search = '', startDate = '', endDate = '', type = '') => {
   const params = {};
   if (course && course !== 'ALL') params.course = course;
   if (search) params.search = search;
   if (startDate) params.startDate = startDate;
   if (endDate) params.endDate = endDate;
+  if (type && type !== 'ALL') params.type = type;
 
   const response = await api.get('/announcements', { params });
   return response.data;

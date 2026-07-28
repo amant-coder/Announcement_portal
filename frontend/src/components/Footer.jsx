@@ -3,7 +3,7 @@ import { MapPin, Phone, Mail, Globe, ShieldCheck } from 'lucide-react';
 
 export const Footer = () => {
   return (
-    <footer className="bg-college-navy dark:bg-slate-900 text-slate-300 mt-auto border-t border-slate-800 dark:border-slate-800 transition-colors duration-300">
+    <footer id="contact" className="bg-college-navy dark:bg-slate-900 text-slate-300 mt-auto border-t border-slate-800 dark:border-slate-800 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-start gap-8">
           {/* Left: Address Info */}

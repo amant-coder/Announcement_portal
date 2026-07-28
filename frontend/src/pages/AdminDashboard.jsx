@@ -122,23 +122,23 @@ export const AdminDashboard = () => {
           <h1 className="text-2xl font-heading font-extrabold text-college-navy dark:text-white">
             Department Notice Management
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Logged in as: <strong className="text-slate-800 dark:text-slate-200">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</strong> (Clerk ID: <code className="font-mono text-slate-700 dark:text-slate-300">{user?.id}</code>)
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Logged in as: <strong className="text-slate-800 dark:text-slate-200 break-all">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</strong> (Clerk ID: <code className="font-mono text-slate-700 dark:text-slate-300 break-all">{user?.id}</code>)
           </p>
           {(() => {
             const userAllowedCourses = user?.publicMetadata?.allowedCourses;
             const isRestrictedHod = Array.isArray(userAllowedCourses) && !userAllowedCourses.includes('*');
             const displayCourses = isRestrictedHod ? userAllowedCourses.join(', ') : 'All College Courses';
             return (
-              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-semibold">
+              <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-semibold">
                 <span>Authorized Department Tag(s):</span>
-                <span className="font-bold underline">{displayCourses}</span>
+                <span className="font-bold underline break-all">{displayCourses}</span>
               </div>
             );
           })()}
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={fetchDashboardData}
             className="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center space-x-1.5"
@@ -213,21 +213,22 @@ export const AdminDashboard = () => {
 
         {/* Grid of HOD Announcements */}
         {!isLoading && announcements.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="columns-1 md:columns-2 gap-6 [column-fill:_balance] w-full">
             {announcements.map((item) => (
-              <AnnouncementCard
-                key={item._id}
-                announcement={item}
-                isAdminView={true}
-                onEdit={(ann) => {
-                  setEditingItem(ann);
-                  setIsModalOpen(true);
-                }}
-                onDelete={(ann) => {
-                  setDeletingItem(ann);
-                  setIsDeleteModalOpen(true);
-                }}
-              />
+              <div key={item._id} className="break-inside-avoid mb-6">
+                <AnnouncementCard
+                  announcement={item}
+                  isAdminView={true}
+                  onEdit={(ann) => {
+                    setEditingItem(ann);
+                    setIsModalOpen(true);
+                  }}
+                  onDelete={(ann) => {
+                    setDeletingItem(ann);
+                    setIsDeleteModalOpen(true);
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}
