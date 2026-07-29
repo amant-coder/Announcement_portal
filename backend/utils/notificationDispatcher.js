@@ -63,8 +63,10 @@ async function triggerPushNotifications(announcement, vapidKeys) {
           if (res.success) {
             successCount++;
           } else {
+            console.warn(`[Push Dispatcher] Delivery rejected for ${currentSub.endpoint}. Status: ${res.statusCode}. Error: ${res.error}`);
             // Clean up invalid or expired subscriptions (status 410 Gone or 404 Not Found)
             if (res.statusCode === 410 || res.statusCode === 404) {
+              console.log(`[Push Dispatcher] Removing expired/invalid subscription: ${currentSub._id}`);
               await Subscription.deleteOne({ _id: currentSub._id }).catch((e) => {
                 console.error(`[Push Dispatcher] Failed to remove expired subscription:`, e.message);
               });
