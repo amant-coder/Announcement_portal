@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar } from 'lucide-react';
-import { getCourses, getAnnouncements } from '../services/api';
+import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar, GraduationCap, ArrowUp, BellRing, Check, Loader2 } from 'lucide-react';
+import { getCourses, getAnnouncements, getVapidPublicKey, subscribeNotifications, unsubscribeNotifications } from '../services/api';
 import { getBookmarks } from '../utils/bookmarks';
 import CourseFilterChips from '../components/CourseFilterChips';
 import AnnouncementCard from '../components/AnnouncementCard';
+import { SkeletonGrid } from '../components/SkeletonCard';
 import { Dock } from '../components/reactbits/Dock';
 import { AnimatedBlocks } from '../components/reactbits/AnimatedBlocks';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 export const PublicFeed = () => {
   const location = useLocation();
@@ -21,6 +37,19 @@ export const PublicFeed = () => {
   const [bookmarkedIds, setBookmarkedIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedYear, setSelectedYear] = useState('ALL');
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Push notifications states
+  const [swRegistration, setSwRegistration] = useState(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [notifyCourse, setNotifyCourse] = useState('BCOM');
+  const [notifyYear, setNotifyYear] = useState('FY');
+  const [savedNotifyCourse, setSavedNotifyCourse] = useState('BCOM');
+  const [savedNotifyYear, setSavedNotifyYear] = useState('FY');
+  const [isSubmittingPush, setIsSubmittingPush] = useState(false);
+  const [pushStatusMsg, setPushStatusMsg] = useState(null);
+  const [justSubscribed, setJustSubscribed] = useState(false);
 
   // Sync selectedType with URL hash / search params when clicking Navbar links
   const applyHashFilter = () => {
@@ -54,6 +83,102 @@ export const PublicFeed = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Back to Top — show after scrolling 400px
+  useEffect(() => {
+    const handleScroll = () => setShowBackToTop(window.scrollY > 400);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Push Notifications Setup
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => {
+          console.log('[SW] Service Worker registered:', reg);
+          setSwRegistration(reg);
+          return reg.pushManager.getSubscription();
+        })
+        .then((sub) => {
+          if (sub) {
+            setIsSubscribed(true);
+            const savedC = localStorage.getItem('gsc_notify_course') || 'BCOM';
+            const savedY = localStorage.getItem('gsc_notify_year') || 'FY';
+            setNotifyCourse(savedC);
+            setNotifyYear(savedY);
+            setSavedNotifyCourse(savedC);
+            setSavedNotifyYear(savedY);
+          }
+        })
+        .catch((err) => {
+          console.warn('[SW] Registration failed:', err);
+        });
+    }
+  }, []);
+
+  const handleSubscribeToggle = async () => {
+    if (!swRegistration) {
+      setPushStatusMsg({ type: 'error', text: 'Push notifications are not supported on this browser.' });
+      return;
+    }
+    setIsSubmittingPush(true);
+    setPushStatusMsg(null);
+    try {
+      const hasChanges = isSubscribed && (notifyCourse !== savedNotifyCourse || notifyYear !== savedNotifyYear);
+
+      if (isSubscribed && !hasChanges) {
+        // Unsubscribe
+        const sub = await swRegistration.pushManager.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          await unsubscribeNotifications(sub.endpoint);
+        }
+        setIsSubscribed(false);
+        setPushStatusMsg({ type: 'success', text: 'Unsubscribed from notifications.' });
+      } else {
+        // Request Permission
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          throw new Error('Notification permission denied by user.');
+        }
+
+        // Fetch Public VAPID key
+        const keyRes = await getVapidPublicKey();
+        if (!keyRes.success) throw new Error(keyRes.error || 'Failed to fetch public VAPID key');
+
+        // Subscribe browser
+        const sub = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(keyRes.publicKey)
+        });
+
+        // Register on backend
+        const res = await subscribeNotifications({
+          subscription: sub,
+          courses: [notifyCourse],
+          years: [notifyYear]
+        });
+
+        if (res.success) {
+          setIsSubscribed(true);
+          setJustSubscribed(true);
+          setSavedNotifyCourse(notifyCourse);
+          setSavedNotifyYear(notifyYear);
+          localStorage.setItem('gsc_notify_course', notifyCourse);
+          localStorage.setItem('gsc_notify_year', notifyYear);
+          setPushStatusMsg({ type: 'success', text: hasChanges ? 'Alert preferences updated successfully!' : 'Successfully subscribed to notice alerts!' });
+        } else {
+          throw new Error(res.error || 'Failed to register subscription on server.');
+        }
+      }
+    } catch (err) {
+      console.error('[Push Setup Error]:', err);
+      setPushStatusMsg({ type: 'error', text: err.message || 'Notification configuration failed.' });
+    } finally {
+      setIsSubmittingPush(false);
+    }
+  };
+
   // Fetch initial course options & bookmarked IDs
   useEffect(() => {
     const fetchCourseList = async () => {
@@ -75,7 +200,7 @@ export const PublicFeed = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate, selectedType);
+      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate, selectedType, selectedYear);
       if (res.success) {
         setAnnouncements(res.data);
       }
@@ -93,7 +218,7 @@ export const PublicFeed = () => {
     }, 300); // 300ms debounce for search input
 
     return () => clearTimeout(timer);
-  }, [selectedCourse, selectedType, searchQuery, startDate, endDate]);
+  }, [selectedCourse, selectedType, searchQuery, startDate, endDate, selectedYear]);
 
   const handleBookmarkToggleInCard = () => {
     setBookmarkedIds(getBookmarks());
@@ -107,22 +232,22 @@ export const PublicFeed = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full relative">
       {/* College Hero Section */}
-      <div id="events" className="bg-gradient-to-r from-college-navy via-college-navyLight to-slate-900 rounded-2xl p-6 sm:p-10 text-white shadow-lg mb-6 relative overflow-hidden border border-college-gold/20">
+      <div id="events" className="bg-gradient-to-r from-college-navy via-college-navyLight to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-lg mb-6 relative overflow-hidden border border-college-gold/20">
         <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center space-x-2 bg-college-gold/20 text-college-gold px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 border border-college-gold/30">
-            <Bell className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center space-x-2 bg-college-gold/20 text-college-gold px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2 border border-college-gold/30">
+            <Bell className="w-3 h-3" />
             <span>Student Notice Board</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-heading font-extrabold tracking-tight mb-3 text-white leading-tight">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-extrabold tracking-tight mb-2 text-white leading-tight">
             Academic Announcements & Notices
           </h1>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            All updates from Head of Departments for BMS, BCom, BAF, BBI, BFM, BSc IT, BMM, BA, and BSc students.
+          <p className="text-slate-350 text-xs sm:text-sm leading-normal">
+            Official department notices, timetables, and college events.
           </p>
 
           {/* Interactive Block Grid */}
-          <div className="mt-6 max-w-md">
-            <AnimatedBlocks count={12} />
+          <div className="mt-3.5 max-w-xs">
+            <AnimatedBlocks count={6} />
           </div>
         </div>
 
@@ -144,6 +269,7 @@ export const PublicFeed = () => {
         ]}
       />
 
+
       {/* Filter & Search Bar */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-5 mb-8 space-y-4 transition-colors duration-300">
 
@@ -164,36 +290,6 @@ export const PublicFeed = () => {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold"
               >
                 Clear
-              </button>
-            )}
-          </div>
-
-          {/* Date Range Filters */}
-          <div className="flex items-center space-x-2 shrink-0">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1">From:</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-college-navy/30"
-              />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 mb-1 ml-1">To:</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-college-navy/30"
-              />
-            </div>
-            {(startDate || endDate) && (
-              <button
-                onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="self-end mb-2 ml-1 text-xs text-rose-500 hover:text-rose-700 dark:text-rose-400 font-bold"
-              >
-                Clear Dates
               </button>
             )}
           </div>
@@ -233,6 +329,36 @@ export const PublicFeed = () => {
           activeCourse={selectedCourse}
           onSelectCourse={(code) => setSelectedCourse(code)}
         />
+
+        {/* Year Filter Chips */}
+        <div className="w-full overflow-x-auto py-2 scrollbar-none">
+          <div className="flex items-center space-x-2 min-w-max">
+            <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
+              <GraduationCap className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+              Year:
+            </div>
+            {[{ id: 'ALL', label: 'All Years' }, { id: 'FY', label: 'First Year' }, { id: 'SY', label: 'Second Year' }, { id: 'TY', label: 'Third Year' }].map((yr) => {
+              const isActive = selectedYear === yr.id;
+              return (
+                <button
+                  key={yr.id}
+                  onClick={() => setSelectedYear(yr.id)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
+                    isActive
+                      ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-700 dark:border-emerald-400 shadow-md ring-2 ring-emerald-400/40 scale-105'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title={yr.label}
+                >
+                  {yr.id === 'ALL' ? yr.id : yr.id}
+                  <span className="ml-1.5 opacity-60 font-normal hidden lg:inline">
+                    • {yr.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Announcements Feed Section */}
@@ -256,13 +382,8 @@ export const PublicFeed = () => {
           </span>
         </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="py-16 text-center">
-            <div className="w-10 h-10 border-4 border-college-navy dark:border-college-gold border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Loading student announcements...</p>
-          </div>
-        )}
+        {/* Skeleton Loading State */}
+        {isLoading && <SkeletonGrid count={6} />}
 
         {/* Error State */}
         {error && !isLoading && (
@@ -307,8 +428,111 @@ export const PublicFeed = () => {
           </div>
         )}
       </div>
+      {/* Push Notifications Subscription Panel (Footer Part) */}
+      {isSubscribed ? (
+        justSubscribed ? (
+          <div className="mt-8 mb-6 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 dark:from-emerald-950/20 dark:to-teal-950/20 backdrop-blur-md rounded-2xl border border-emerald-250 dark:border-emerald-900/30 p-5 shadow-sm transition-all duration-300">
+            <div className="flex items-center space-x-3 w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-extrabold text-slate-850 dark:text-emerald-100 text-sm sm:text-base">
+                  Subscribed Successfully!
+                </h3>
+                <p className="text-xs text-slate-655 dark:text-slate-300 leading-relaxed mt-0.5 font-bold">
+                  You'll Receive Regular updates for the <span className="text-emerald-650 dark:text-emerald-400 font-extrabold">{savedNotifyCourse} ({savedNotifyYear === 'FY' ? 'First Year' : savedNotifyYear === 'SY' ? 'Second Year' : 'Third Year'})</span> department.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null
+      ) : (
+        <div className="mt-8 mb-6 bg-gradient-to-br from-white/90 to-slate-50/90 dark:from-slate-800/90 dark:to-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm transition-all duration-300">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start space-x-3 w-full">
+              <div className="p-2.5 rounded-xl bg-emerald-105 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-455 shrink-0">
+                <BellRing className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-heading font-extrabold text-slate-850 dark:text-white text-sm sm:text-base">
+                  Never Miss a College Notice
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
+                  Get notified instantly when new notices are published for your year and course.
+                </p>
+
+                {/* Inline Selection Dropdowns */}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-700 dark:text-slate-350">Alerts for:</span>
+                  <select
+                    value={notifyCourse}
+                    onChange={(e) => setNotifyCourse(e.target.value)}
+                    disabled={isSubmittingPush}
+                    className="px-2 py-1 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    {(courses.length > 0 ? courses : [
+                      { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
+                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BMM' }, { code: 'BA' }, { code: 'BSC' }
+                    ]).map((c) => (
+                      <option key={c.code} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={notifyYear}
+                    onChange={(e) => setNotifyYear(e.target.value)}
+                    disabled={isSubmittingPush}
+                    className="px-2 py-1 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="FY">First Year (FY)</option>
+                    <option value="SY">Second Year (SY)</option>
+                    <option value="TY">Third Year (TY)</option>
+                  </select>
+                </div>
+
+                {pushStatusMsg && (
+                  <div className={`p-2 mt-3 rounded-lg text-xs font-bold border flex items-center gap-1.5 max-w-lg ${
+                    pushStatusMsg.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-350 border-emerald-150 dark:border-emerald-900/50'
+                      : 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-355 border-rose-150 dark:border-rose-900/50'
+                  }`}>
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{pushStatusMsg.text}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center shrink-0 self-end md:self-center">
+              <button
+                onClick={handleSubscribeToggle}
+                disabled={isSubmittingPush}
+                className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center space-x-1.5 shadow-sm"
+              >
+                {isSubmittingPush ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <span>Enable Alerts</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Back to Top Button */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="Back to top"
+        className={`fixed bottom-6 right-6 z-50 p-3 rounded-full bg-college-navy dark:bg-college-gold text-college-gold dark:text-college-navy shadow-lg shadow-college-navy/30 dark:shadow-college-gold/20 border border-college-gold/30 dark:border-college-navy/30 transition-all duration-300 hover:scale-110 active:scale-95 ${
+          showBackToTop ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+      >
+        <ArrowUp className="w-4 h-4" />
+      </button>
     </div>
   );
 };
-
 export default PublicFeed;

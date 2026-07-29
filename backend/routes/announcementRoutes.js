@@ -89,7 +89,7 @@ const validateHodCoursePermissions = async (userId, targetCourseCodes) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { course, search, startDate, endDate, type } = req.query;
+    const { course, search, startDate, endDate, type, year } = req.query;
     const now = new Date();
 
     // Query filter: exclude expired announcements and only show PUBLISHED
@@ -119,6 +119,11 @@ router.get('/', async (req, res) => {
     // Filter by course tag if provided
     if (course && typeof course === 'string' && course.trim() !== '') {
       queryFilter.courseCodes = course.trim().toUpperCase();
+    }
+
+    // Filter by target year (FY, SY, TY) if provided
+    if (year && typeof year === 'string' && ['FY', 'SY', 'TY'].includes(year.trim().toUpperCase())) {
+      queryFilter.targetYears = year.trim().toUpperCase();
     }
 
     // Search by keyword in title or content if provided
@@ -262,7 +267,7 @@ router.post(
     }
 
     try {
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
       
       const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
 
@@ -297,6 +302,21 @@ router.post(
         });
       }
 
+      // Validate targetYears if provided
+      const validYears = ['FY', 'SY', 'TY'];
+      let resolvedYears = validYears; // default to all
+      if (targetYears !== undefined) {
+        if (!Array.isArray(targetYears) || targetYears.length === 0) {
+          return res.status(400).json({ success: false, error: 'targetYears must be a non-empty array of FY, SY, TY.' });
+        }
+        const normalized = targetYears.map((y) => String(y).trim().toUpperCase());
+        const invalid = normalized.filter((y) => !validYears.includes(y));
+        if (invalid.length > 0) {
+          return res.status(400).json({ success: false, error: `Invalid target year(s): ${invalid.join(', ')}. Allowed: FY, SY, TY.` });
+        }
+        resolvedYears = [...new Set(normalized)];
+      }
+
       // Sanitize content against stored XSS
       const cleanContent = sanitizeHtml(content, sanitizeOptions);
 
@@ -327,9 +347,18 @@ router.post(
         status: status && ['DRAFT', 'PUBLISHED'].includes(status) ? status : 'PUBLISHED',
         type: targetType,
         timetableEntries: targetType === 'TIMETABLE' ? timetableEntries : undefined,
+        targetYears: resolvedYears,
       });
 
       await newAnnouncement.save();
+
+      // Trigger push notifications for published announcements
+      if (newAnnouncement.status === 'PUBLISHED') {
+        const { triggerPushNotifications } = require('../utils/notificationDispatcher');
+        triggerPushNotifications(newAnnouncement, req.app.get('vapidKeys')).catch((err) => {
+          console.error('[Push Notification Dispatch Error]:', err.message);
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -393,7 +422,7 @@ router.put(
         });
       }
 
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
 
       const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
 
@@ -444,7 +473,30 @@ router.put(
         announcement.timetableEntries = undefined;
       }
 
+      // Update targetYears if provided
+      if (targetYears !== undefined) {
+        const validYears = ['FY', 'SY', 'TY'];
+        if (!Array.isArray(targetYears) || targetYears.length === 0) {
+          return res.status(400).json({ success: false, error: 'targetYears must be a non-empty array of FY, SY, TY.' });
+        }
+        const normalized = targetYears.map((y) => String(y).trim().toUpperCase());
+        const invalid = normalized.filter((y) => !validYears.includes(y));
+        if (invalid.length > 0) {
+          return res.status(400).json({ success: false, error: `Invalid target year(s): ${invalid.join(', ')}. Allowed: FY, SY, TY.` });
+        }
+        announcement.targetYears = [...new Set(normalized)];
+      }
+
+      const previousStatus = announcement.status;
       await announcement.save();
+
+      // Trigger push notifications if it became PUBLISHED, or was updated while PUBLISHED
+      if (announcement.status === 'PUBLISHED' && (previousStatus === 'DRAFT' || req.body.status === 'PUBLISHED' || status === 'PUBLISHED')) {
+        const { triggerPushNotifications } = require('../utils/notificationDispatcher');
+        triggerPushNotifications(announcement, req.app.get('vapidKeys')).catch((err) => {
+          console.error('[Push Notification Dispatch Error]:', err.message);
+        });
+      }
 
       res.json({
         success: true,

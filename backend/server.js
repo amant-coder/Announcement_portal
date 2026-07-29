@@ -10,8 +10,42 @@ const courseRoutes = require('./routes/courseRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
+
+// Load or auto-generate VAPID keys for push notifications
+const fs = require('fs');
+const path = require('path');
+const { generateVapidKeys } = require('./utils/webPushHelper');
+
+let VAPID_KEYS = {
+  publicKey: process.env.VAPID_PUBLIC_KEY,
+  privateKey: process.env.VAPID_PRIVATE_KEY
+};
+
+if (!VAPID_KEYS.publicKey || !VAPID_KEYS.privateKey) {
+  const keysPath = path.join(__dirname, 'vapid-keys.json');
+  if (fs.existsSync(keysPath)) {
+    try {
+      VAPID_KEYS = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
+    } catch (err) {
+      console.error('[VAPID] Error reading persisted keys:', err.message);
+    }
+  }
+
+  if (!VAPID_KEYS.publicKey || !VAPID_KEYS.privateKey) {
+    console.log('[VAPID] Generating new VAPID keys...');
+    VAPID_KEYS = generateVapidKeys();
+    try {
+      fs.writeFileSync(keysPath, JSON.stringify(VAPID_KEYS, null, 2), 'utf8');
+      console.log('[VAPID] VAPID keys persisted to vapid-keys.json');
+    } catch (err) {
+      console.error('[VAPID] Error persisting keys:', err.message);
+    }
+  }
+}
+app.set('vapidKeys', VAPID_KEYS);
 
 // Disable X-Powered-By header for security obfuscation
 app.disable('x-powered-by');
@@ -44,6 +78,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

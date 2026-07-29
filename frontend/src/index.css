@@ -45,4 +45,10 @@
   .clip-triangle-tr { clip-path: polygon(0 0, 100% 0, 100% 100%); }
   .clip-triangle-bl { clip-path: polygon(0 0, 0 100%, 100% 100%); }
   .clip-triangle-br { clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
 }

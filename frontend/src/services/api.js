@@ -29,13 +29,14 @@ export const getCourses = async () => {
 /**
  * Fetch public announcements with optional course and search query
  */
-export const getAnnouncements = async (course = '', search = '', startDate = '', endDate = '', type = '') => {
+export const getAnnouncements = async (course = '', search = '', startDate = '', endDate = '', type = '', year = '') => {
   const params = {};
   if (course && course !== 'ALL') params.course = course;
   if (search) params.search = search;
   if (startDate) params.startDate = startDate;
   if (endDate) params.endDate = endDate;
   if (type && type !== 'ALL') params.type = type;
+  if (year && year !== 'ALL') params.year = year;
 
   const response = await api.get('/announcements', { params });
   return response.data;
@@ -156,6 +157,31 @@ export const getAllAnnouncementsAudit = async (adminSecret) => {
   });
   return response.data;
 };
+
+/**
+ * Fetch VAPID public key
+ */
+export const getVapidPublicKey = async () => {
+  const response = await api.get('/notifications/vapid-public-key');
+  return response.data;
+};
+
+/**
+ * Register push subscription
+ */
+export const subscribeNotifications = async (payload) => {
+  const response = await api.post('/notifications/subscribe', payload);
+  return response.data;
+};
+
+/**
+ * Remove push subscription
+ */
+export const unsubscribeNotifications = async (endpoint) => {
+  const response = await api.post('/notifications/unsubscribe', { endpoint });
+  return response.data;
+};
+
 
 
 

@@ -64,6 +64,15 @@ const announcementSchema = new mongoose.Schema(
       enum: ['DRAFT', 'PUBLISHED'],
       default: 'PUBLISHED',
     },
+    targetYears: {
+      type: [String],
+      enum: ['FY', 'SY', 'TY'],
+      default: ['FY', 'SY', 'TY'],
+      validate: {
+        validator: (arr) => Array.isArray(arr) && arr.length > 0,
+        message: 'At least one target year (FY, SY, or TY) is required.',
+      },
+    },
     type: {
       type: String,
       enum: ['NOTICE', 'EVENT', 'TIMETABLE'],
@@ -98,5 +107,6 @@ announcementSchema.index({ isPinned: -1, createdAt: -1 });
 announcementSchema.index({ expiresAt: 1 });
 announcementSchema.index({ courseCodes: 1 });
 announcementSchema.index({ type: 1 });
+announcementSchema.index({ targetYears: 1 });
 
 module.exports = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);

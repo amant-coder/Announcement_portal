@@ -19,6 +19,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [type, setType] = useState('NOTICE');
 
   const [timetableEntries, setTimetableEntries] = useState([{ subject: '', date: '', time: '', room: '' }]);
+  const [selectedYears, setSelectedYears] = useState(['FY', 'SY', 'TY']);
   const [showPasteParser, setShowPasteParser] = useState(false);
   const [pasteData, setPasteData] = useState('');
 
@@ -52,6 +53,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       } else {
         setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
       }
+      setSelectedYears(initialData.targetYears && initialData.targetYears.length > 0 ? initialData.targetYears : ['FY', 'SY', 'TY']);
     } else {
       setTitle('');
       setContent('');
@@ -67,6 +69,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       setStatus('PUBLISHED');
       setType('NOTICE');
       setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
+      setSelectedYears(['FY', 'SY', 'TY']);
     }
     setFileToUpload(null);
     setErrorMsg('');
@@ -147,6 +150,11 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       return;
     }
 
+    if (selectedYears.length === 0) {
+      setErrorMsg('Please select at least one target year (FY, SY, or TY).');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -172,6 +180,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
           ...e,
           date: new Date(e.date).toISOString()
         })) : undefined,
+        targetYears: selectedYears,
       };
 
       await onSave(payload);
@@ -301,6 +310,42 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                       }`}
                   >
                     {isSelected ? `✓ ${course.code}` : `+ ${course.code}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Target Year Selection */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Target Year(s) *
+            </label>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+              Select which year's students should see this announcement.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {['FY', 'SY', 'TY'].map((yr) => {
+                const isSelected = selectedYears.includes(yr);
+                const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
+                return (
+                  <button
+                    type="button"
+                    key={yr}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedYears(selectedYears.filter((y) => y !== yr));
+                      } else {
+                        setSelectedYears([...selectedYears, yr]);
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${isSelected
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+                      }`}
+                  >
+                    {isSelected ? `✓ ${yr}` : `+ ${yr}`}
+                    <span className="font-normal opacity-70">{yearLabels[yr]}</span>
                   </button>
                 );
               })}
