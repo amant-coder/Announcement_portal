@@ -17,6 +17,7 @@ const app = express();
 // Load or auto-generate VAPID keys for push notifications
 const fs = require('fs');
 const path = require('path');
+const webpush = require('web-push');
 const { generateVapidKeys } = require('./utils/webPushHelper');
 
 let VAPID_KEYS = {
@@ -45,6 +46,15 @@ if (!VAPID_KEYS.publicKey || !VAPID_KEYS.privateKey) {
     }
   }
 }
+
+// Configure web-push globally with VAPID credentials
+webpush.setVapidDetails(
+  'mailto:admin@gsc.edu',
+  VAPID_KEYS.publicKey,
+  VAPID_KEYS.privateKey
+);
+console.log('[VAPID] Web Push configured with VAPID public key:', VAPID_KEYS.publicKey.substring(0, 20) + '...');
+
 app.set('vapidKeys', VAPID_KEYS);
 
 // Disable X-Powered-By header for security obfuscation
