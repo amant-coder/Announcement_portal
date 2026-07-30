@@ -23,7 +23,18 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    (async () => {
+      // Check if notification permission is granted before displaying
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        console.warn('[SW] Push received but notification permission is not granted:', Notification.permission);
+        return;
+      }
+      try {
+        await self.registration.showNotification(data.title, options);
+      } catch (err) {
+        console.warn('[SW] Failed to show notification:', err);
+      }
+    })()
   );
 });
 

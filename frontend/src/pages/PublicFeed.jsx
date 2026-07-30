@@ -100,7 +100,7 @@ export const PublicFeed = () => {
           return reg.pushManager.getSubscription();
         })
         .then((sub) => {
-          if (sub) {
+          if (sub && Notification.permission === 'granted') {
             setIsSubscribed(true);
             const savedC = localStorage.getItem('gsc_notify_course') || 'BCOM';
             const savedY = localStorage.getItem('gsc_notify_year') || 'FY';
@@ -108,6 +108,8 @@ export const PublicFeed = () => {
             setNotifyYear(savedY);
             setSavedNotifyCourse(savedC);
             setSavedNotifyYear(savedY);
+          } else {
+            setIsSubscribed(false);
           }
         })
         .catch((err) => {
