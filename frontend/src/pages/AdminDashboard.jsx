@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { Plus, Bell, RefreshCw, AlertCircle, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Plus, Bell, RefreshCw, AlertCircle, ShieldCheck, CheckCircle2, LogOut } from 'lucide-react';
 import { getMyAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, getCourses } from '../services/api';
 import AnnouncementCard from '../components/AnnouncementCard';
 import AnnouncementModal from '../components/AnnouncementModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 export const AdminDashboard = () => {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
 
   const [announcements, setAnnouncements] = useState([]);
@@ -149,6 +149,15 @@ export const AdminDashboard = () => {
           </button>
 
           <button
+            onClick={() => signOut({ redirectUrl: '/admin/login' })}
+            className="px-4 py-2.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold transition-colors flex items-center space-x-1.5"
+            title="Sign Out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+
+          <button
             onClick={() => {
               setEditingItem(null);
               setIsModalOpen(true);
@@ -177,9 +186,18 @@ export const AdminDashboard = () => {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold mb-6 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+          <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => signOut({ redirectUrl: '/admin/login' })}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-sm flex items-center space-x-1.5 shrink-0 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out & Re-login</span>
+            </button>
           </div>
         )}
 

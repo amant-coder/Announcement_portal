@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, UserButton } from '@clerk/clerk-react';
-import { Home, Calendar, Bell, PhoneCall, Sun, Moon, LayoutDashboard, Menu, X, Clock } from 'lucide-react';
+import { Home, Calendar, Bell, PhoneCall, Sun, Moon, LayoutDashboard, Menu, X, Clock, LogOut } from 'lucide-react';
 import { MagneticButton } from './reactbits/MagneticButton';
 import { useTheme } from '../context/ThemeContext';
 
@@ -156,11 +156,17 @@ export const Navbar = () => {
                 </Link>
 
                 <div className="flex items-center justify-center p-0.5 bg-white/20 rounded-full border border-white/30">
-                  <UserButton afterSignOutUrl="/" />
+                  <UserButton afterSignOutUrl="/admin/login" />
                 </div>
               </div>
             ) : (
-              null
+              <Link
+                to="/admin/login"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/15 hover:bg-white/25 text-white transition-all border border-white/20 shadow-sm flex items-center space-x-1.5"
+              >
+                <LayoutDashboard className="w-4 h-4 text-sky-100" />
+                <span>HOD Login</span>
+              </Link>
             )}
 
             {/* Mobile Drawer Button */}
