@@ -11,6 +11,7 @@ const announcementRoutes = require('./routes/announcementRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -119,6 +121,28 @@ if (process.env.NODE_ENV !== 'test') {
   connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(`[Server Running]: http://localhost:${PORT}`);
+
+      // ──────────────────────────────────────────────────────────────
+      // Keep-alive self-ping (prevents Render free tier spin-down)
+      // Pings /api/health every 5 minutes
+      // ──────────────────────────────────────────────────────────────
+      const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://announcement-portal-backend.onrender.com';
+      const PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+      const keepAlive = () => {
+        const url = new URL('/api/health', RENDER_URL);
+        const client = url.protocol === 'https:' ? require('https') : require('http');
+        client.get(url.toString(), (res) => {
+          console.log(`[Keep-Alive] ✅ Self-ping successful: ${res.statusCode}`);
+        }).on('error', (err) => {
+          console.error(`[Keep-Alive] ❌ Self-ping failed: ${err.message}`);
+        });
+      };
+
+      // Trigger immediate initial ping on server startup
+      keepAlive();
+      setInterval(keepAlive, PING_INTERVAL_MS);
+      console.log(`[Keep-Alive] 🔁 Self-ping started → ${RENDER_URL}/api/health (every 5 min)`);
     });
   });
 }

@@ -130,7 +130,7 @@ export const Navbar = () => {
             <MagneticButton onClick={toggleTheme}>
               <div
                 aria-label="Toggle theme"
-                className="p-2.5 rounded-xl bg-white/15 hover:bg-white/25 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-amber-300 transition-all transform active:scale-95 border border-white/20 dark:border-slate-700 shadow-sm flex items-center justify-center group"
+                className="p-2 sm:p-2.5 rounded-xl bg-white/15 hover:bg-white/25 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-amber-300 transition-all transform active:scale-95 border border-white/20 dark:border-slate-700 shadow-sm flex items-center justify-center group"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {theme === 'dark' ? (
@@ -141,9 +141,9 @@ export const Navbar = () => {
               </div>
             </MagneticButton>
 
-            {/* HOD Dashboard Link / Profile */}
+            {/* Desktop HOD Dashboard Link / Profile */}
             {isSignedIn ? (
-              <div className="flex items-center space-x-2 pl-1 border-l border-white/30">
+              <div className="hidden md:flex items-center space-x-2 pl-1 border-l border-white/30">
                 <Link
                   to="/admin"
                   className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center space-x-1.5 shadow-md ${isAdmin
@@ -152,7 +152,7 @@ export const Navbar = () => {
                     }`}
                 >
                   <LayoutDashboard className="w-4 h-4 text-sky-700" />
-                  <span className="hidden sm:inline">HOD Portal</span>
+                  <span>HOD Portal</span>
                 </Link>
 
                 <div className="flex items-center justify-center p-0.5 bg-white/20 rounded-full border border-white/30">
@@ -162,11 +162,18 @@ export const Navbar = () => {
             ) : (
               <Link
                 to="/admin/login"
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/15 hover:bg-white/25 text-white transition-all border border-white/20 shadow-sm flex items-center space-x-1.5"
+                className="hidden md:flex px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/15 hover:bg-white/25 text-white transition-all border border-white/20 shadow-sm items-center space-x-1.5"
               >
                 <LayoutDashboard className="w-4 h-4 text-sky-100" />
                 <span>HOD Login</span>
               </Link>
+            )}
+
+            {/* Mobile UserButton if signed in */}
+            {isSignedIn && (
+              <div className="md:hidden flex items-center justify-center p-0.5 bg-white/20 rounded-full border border-white/30">
+                <UserButton afterSignOutUrl="/admin/login" />
+              </div>
             )}
 
             {/* Mobile Drawer Button */}
@@ -225,6 +232,28 @@ export const Navbar = () => {
             <PhoneCall className="w-4 h-4 text-emerald-300" />
             <span>Contact Us</span>
           </button>
+
+          <div className="pt-2 border-t border-sky-400/30 dark:border-slate-800">
+            {isSignedIn ? (
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-amber-400 text-slate-900 flex items-center space-x-2 shadow-sm"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>HOD Portal</span>
+              </Link>
+            ) : (
+              <Link
+                to="/admin/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-white/20 hover:bg-white/30 text-white flex items-center space-x-2 border border-white/20"
+              >
+                <LayoutDashboard className="w-4 h-4 text-sky-100" />
+                <span>HOD Login</span>
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </header>

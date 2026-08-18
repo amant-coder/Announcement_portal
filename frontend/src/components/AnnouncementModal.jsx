@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties } from 'lucide-react';
+import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Sparkles, CheckCircle2 } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { uploadFile } from '../services/upload';
+import { generateFromPdf } from '../services/api';
 
 export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null, courses = [] }) => {
   const { getToken } = useAuth();
@@ -27,6 +28,9 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiSuccessMsg, setAiSuccessMsg] = useState('');
 
   // Extract allowed courses for this HOD from Clerk publicMetadata
   const userAllowedCourses = user?.publicMetadata?.allowedCourses;
@@ -122,6 +126,63 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     setPasteData('');
   };
 
+  const handleGenerateWithAi = async () => {
+    setErrorMsg('');
+    setAiSuccessMsg('');
+
+    let targetUrl = attachmentUrl;
+
+    // Check if user selected a file to upload
+    if (fileToUpload) {
+      const isPdf = fileToUpload.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        setErrorMsg('AI Auto-Fill requires a PDF document. Please choose a PDF file.');
+        return;
+      }
+      try {
+        setIsUploading(true);
+        targetUrl = await uploadFile(fileToUpload, getToken);
+        setAttachmentUrl(targetUrl);
+        setIsUploading(false);
+      } catch (err) {
+        setIsUploading(false);
+        setErrorMsg('Failed to upload PDF file for AI processing: ' + (err.message || 'Upload failed.'));
+        return;
+      }
+    }
+
+    if (!targetUrl) {
+      setErrorMsg('Please choose and upload a PDF document first before generating AI content.');
+      return;
+    }
+
+    try {
+      setIsGeneratingAi(true);
+      const res = await generateFromPdf(targetUrl, getToken);
+      if (res.success && res.data) {
+        const { title: aiTitle, content: aiContent, type: aiType, timetableEntries: aiTimetable } = res.data;
+        if (aiTitle) setTitle(aiTitle);
+        if (aiType) setType(aiType);
+        if (aiType === 'TIMETABLE' && Array.isArray(aiTimetable) && aiTimetable.length > 0) {
+          setTimetableEntries(aiTimetable);
+        }
+        if (aiContent) {
+          setContent(aiContent);
+        }
+        setAiSuccessMsg('Form auto-filled successfully from PDF using Gemini AI!');
+        setTimeout(() => setAiSuccessMsg(''), 5000);
+      } else {
+        setErrorMsg(res.error || 'Failed to generate content from PDF.');
+      }
+    } catch (err) {
+      console.error('[AI Generation Error]:', err);
+      const rawMsg = err.response?.data?.error || err.message || 'AI Generation failed.';
+      setErrorMsg(typeof rawMsg === 'string' ? rawMsg : 'AI Generation failed.');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
   const handleSubmit = async (e, forcedStatus = null) => {
     e.preventDefault();
     setErrorMsg('');
@@ -196,23 +257,54 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-150">
         {/* Modal Header */}
-        <div className="bg-college-navy px-6 py-4 text-white flex items-center justify-between">
-          <h2 className="font-heading font-bold text-lg">
-            {initialData ? 'Edit Post' : 'Post Announcement / Event'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+        <div className="bg-college-navy px-4 sm:px-6 py-3.5 sm:py-4 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-3">
+            <h2 className="font-heading font-bold text-base sm:text-lg">
+              {initialData ? 'Edit Post' : 'Post Announcement / Event'}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateWithAi}
+              disabled={isGeneratingAi || isUploading || isSubmitting}
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+              title="Upload a PDF and click to auto-fill title, content & timetable via Gemini AI"
+            >
+              {isGeneratingAi ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Reading PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 fill-slate-900" />
+                  <span className="hidden sm:inline">✨ Generate with AI</span>
+                  <span className="sm:hidden">AI Fill</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-5 transition-colors duration-300">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 transition-colors duration-300 overflow-y-auto flex-1">
+          {aiSuccessMsg && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center gap-2 animate-in fade-in duration-200">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{aiSuccessMsg}</span>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-800 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -225,11 +317,11 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Post Type / Category *
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setType('NOTICE')}
-                className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
                   type === 'NOTICE'
                     ? 'bg-college-navy text-college-gold border-college-navy shadow-sm ring-2 ring-college-gold/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -242,7 +334,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               <button
                 type="button"
                 onClick={() => setType('EVENT')}
-                className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
                   type === 'EVENT'
                     ? 'bg-amber-500 text-white border-amber-600 shadow-sm ring-2 ring-amber-400/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -255,7 +347,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               <button
                 type="button"
                 onClick={() => setType('TIMETABLE')}
-                className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
                   type === 'TIMETABLE'
                     ? 'bg-college-navy text-white border-college-navy shadow-sm ring-2 ring-college-navy/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -400,7 +492,8 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               )}
 
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900/50">
-                <div className="grid grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-2 p-3 border-b border-slate-200 dark:border-slate-700 font-bold text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {/* Desktop Table Header */}
+                <div className="hidden sm:grid grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-2 p-3 border-b border-slate-200 dark:border-slate-700 font-bold text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <div>Date</div>
                   <div>Subject / Paper</div>
                   <div>Time</div>
@@ -410,58 +503,79 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                 
                 <div className="divide-y divide-slate-200 dark:divide-slate-700">
                   {timetableEntries.map((entry, idx) => (
-                    <div key={idx} className="grid grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-2 p-2 items-start bg-white dark:bg-slate-800">
-                      <input
-                        type="date"
-                        value={entry.date}
-                        onChange={(e) => {
-                          const newEntries = [...timetableEntries];
-                          newEntries[idx].date = e.target.value;
-                          setTimetableEntries(newEntries);
-                        }}
-                        className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                      <input
-                        type="text"
-                        value={entry.subject}
-                        placeholder="Subject name"
-                        onChange={(e) => {
-                          const newEntries = [...timetableEntries];
-                          newEntries[idx].subject = e.target.value;
-                          setTimetableEntries(newEntries);
-                        }}
-                        className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                      <input
-                        type="text"
-                        value={entry.time}
-                        placeholder="e.g. 10:00 - 12:00"
-                        onChange={(e) => {
-                          const newEntries = [...timetableEntries];
-                          newEntries[idx].time = e.target.value;
-                          setTimetableEntries(newEntries);
-                        }}
-                        className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                      <input
-                        type="text"
-                        value={entry.room}
-                        placeholder="Room"
-                        onChange={(e) => {
-                          const newEntries = [...timetableEntries];
-                          newEntries[idx].room = e.target.value;
-                          setTimetableEntries(newEntries);
-                        }}
-                        className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setTimetableEntries(timetableEntries.filter((_, i) => i !== idx))}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded mt-0.5 transition-colors"
-                        title="Remove row"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div key={idx} className="p-3 sm:p-2 bg-white dark:bg-slate-800 space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[1fr_2fr_1.5fr_1fr_auto] sm:gap-2 sm:items-center relative">
+                      <div className="flex items-center justify-between sm:contents">
+                        <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Date</span>
+                        <input
+                          type="date"
+                          value={entry.date}
+                          onChange={(e) => {
+                            const newEntries = [...timetableEntries];
+                            newEntries[idx].date = e.target.value;
+                            setTimetableEntries(newEntries);
+                          }}
+                          className="w-full sm:w-auto px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="space-y-1 sm:space-y-0">
+                        <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400 block">Subject / Paper</span>
+                        <input
+                          type="text"
+                          value={entry.subject}
+                          placeholder="Subject name"
+                          onChange={(e) => {
+                            const newEntries = [...timetableEntries];
+                            newEntries[idx].subject = e.target.value;
+                            setTimetableEntries(newEntries);
+                          }}
+                          className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:contents gap-2">
+                        <div>
+                          <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Time</span>
+                          <input
+                            type="text"
+                            value={entry.time}
+                            placeholder="e.g. 10:00 - 12:00"
+                            onChange={(e) => {
+                              const newEntries = [...timetableEntries];
+                              newEntries[idx].time = e.target.value;
+                              setTimetableEntries(newEntries);
+                            }}
+                            className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+
+                        <div>
+                          <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Room (Opt)</span>
+                          <input
+                            type="text"
+                            value={entry.room}
+                            placeholder="Room"
+                            onChange={(e) => {
+                              const newEntries = [...timetableEntries];
+                              newEntries[idx].room = e.target.value;
+                              setTimetableEntries(newEntries);
+                            }}
+                            className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end sm:justify-center pt-1 sm:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => setTimetableEntries(timetableEntries.filter((_, i) => i !== idx))}
+                          className="px-2 py-1 sm:p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded transition-colors text-xs font-bold flex items-center gap-1"
+                          title="Remove row"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="sm:hidden">Remove Entry</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -508,7 +622,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Attachment Document (PDF, Image, Doc)
             </label>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center gap-3">
               <label className="cursor-pointer inline-flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-college-navy dark:text-slate-200 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 transition-colors">
                 <Upload className="w-4 h-4 text-college-navy" />
                 <span>{fileToUpload ? 'Change File' : 'Choose File to Upload'}</span>
@@ -535,9 +649,30 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                   Existing Attachment
                 </a>
               )}
+
+              {(fileToUpload || attachmentUrl) && (
+                <button
+                  type="button"
+                  onClick={handleGenerateWithAi}
+                  disabled={isGeneratingAi || isUploading || isSubmitting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/60 dark:hover:bg-sky-900/80 text-sky-800 dark:text-sky-200 font-bold rounded-lg text-xs border border-sky-300 dark:border-sky-800 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {isGeneratingAi ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                      <span>Reading PDF with AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <span>Auto-Fill Form from PDF</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Files are securely uploaded via the backend.
+              Select or upload a PDF document and click <strong className="text-slate-700 dark:text-slate-200">✨ Generate with AI</strong> to automatically populate Title, Category & Schedule.
             </p>
           </div>
 
@@ -573,21 +708,21 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-700 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors text-center"
               disabled={isSubmitting}
             >
               Cancel
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <button
                 type="button"
                 onClick={(e) => handleSubmit(e, 'DRAFT')}
                 disabled={isSubmitting || isUploading}
-                className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-xs transition-shadow shadow-sm flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-xs transition-shadow shadow-sm flex items-center justify-center gap-2"
               >
                 {(isSubmitting || isUploading) && status === 'DRAFT' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 <span>Save as Draft</span>
@@ -596,7 +731,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                 type="button"
                 onClick={(e) => handleSubmit(e, 'PUBLISHED')}
                 disabled={isSubmitting || isUploading}
-                className="px-5 py-2 bg-college-navy hover:bg-college-navyLight text-college-gold font-bold rounded-lg text-xs transition-all shadow-sm flex items-center gap-2"
+                className="w-full sm:w-auto px-5 py-2 bg-college-navy hover:bg-college-navyLight text-college-gold font-bold rounded-lg text-xs transition-all shadow-sm flex items-center justify-center gap-2"
               >
                 {(isSubmitting || isUploading) && status === 'PUBLISHED' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 <span>{isUploading ? 'Uploading File...' : isSubmitting ? 'Saving...' : 'Publish Announcement'}</span>

@@ -11,10 +11,10 @@ export const Dock = ({ items = [], activeTab = 'all', onSelect }) => {
   }, []);
 
   return (
-    <div className="flex justify-center my-4 sm:my-6 sticky top-20 sm:top-24 z-40">
+    <div className="flex justify-center my-3 sm:my-6 sticky top-20 sm:top-24 z-40 px-2">
       <div
         onMouseLeave={() => setHoveredIdx(null)}
-        className="flex items-center gap-1.5 sm:gap-2 md:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-sky-500/5 transition-all duration-300 overflow-x-auto scrollbar-none max-w-[calc(100vw-2rem)]"
+        className="flex items-center gap-1 sm:gap-2 md:gap-3 px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-sky-500/5 transition-all duration-300 overflow-x-auto scrollbar-none max-w-full"
       >
         {items.map((item, idx) => {
           const isSelected = activeTab === item.id;
@@ -38,14 +38,14 @@ export const Dock = ({ items = [], activeTab = 'all', onSelect }) => {
                 transform: `scale(${scale})`,
                 transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
-              className={`relative flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs md:text-sm font-bold transition-colors whitespace-nowrap shrink-0 ${
+              className={`relative flex items-center gap-1 sm:gap-2 px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs md:text-sm font-bold transition-colors whitespace-nowrap shrink-0 ${
                 isSelected
                   ? 'bg-college-navy text-white dark:bg-amber-400 dark:text-slate-950 shadow-md'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
               }`}
             >
               {IconComponent && <IconComponent className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSelected ? 'text-amber-300 dark:text-slate-900' : 'text-sky-500 dark:text-sky-400'}`} />}
-              <span className="hidden sm:inline">{item.label}</span>
+              <span className="text-[10px] sm:text-xs md:text-sm">{item.label}</span>
               {item.badge !== undefined && (
                 <span className={`ml-0.5 sm:ml-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] ${
                   isSelected 

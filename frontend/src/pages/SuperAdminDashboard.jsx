@@ -297,10 +297,10 @@ export const SuperAdminDashboard = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center space-x-3 mb-6 border-b border-slate-200 dark:border-slate-700 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-6 border-b border-slate-200 dark:border-slate-700 pb-3">
         <button
           onClick={() => setActiveTab('hods')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 ${
+          className={`w-full sm:w-auto px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
             activeTab === 'hods'
               ? 'bg-college-navy dark:bg-slate-700 text-college-gold dark:text-amber-300 shadow-md'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -312,7 +312,7 @@ export const SuperAdminDashboard = () => {
 
         <button
           onClick={() => setActiveTab('announcements')}
-          className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 ${
+          className={`w-full sm:w-auto px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
             activeTab === 'announcements'
               ? 'bg-college-navy dark:bg-slate-700 text-college-gold dark:text-amber-300 shadow-md'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'

@@ -182,6 +182,24 @@ export const unsubscribeNotifications = async (endpoint) => {
   return response.data;
 };
 
+/**
+ * Generate announcement fields from uploaded PDF URL via Gemini AI
+ */
+export const generateFromPdf = async (pdfUrl, getToken) => {
+  const token = await getToken();
+  const response = await api.post(
+    '/ai/generate-from-pdf',
+    { pdfUrl },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data;
+};
+
+
 
 
 
