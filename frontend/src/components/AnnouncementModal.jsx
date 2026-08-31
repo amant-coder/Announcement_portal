@@ -627,5 +627,4 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     </div>
   );
 };
-
 export default AnnouncementModal;
