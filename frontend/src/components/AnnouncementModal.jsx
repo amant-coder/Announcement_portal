@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { uploadFile } from '../services/upload';
-import { generateFromPdf } from '../services/api';
 
 export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null, courses = [] }) => {
   const { getToken } = useAuth();
@@ -28,9 +27,6 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [aiSuccessMsg, setAiSuccessMsg] = useState('');
 
   // Extract allowed courses for this HOD from Clerk publicMetadata
   const userAllowedCourses = user?.publicMetadata?.allowedCourses;
@@ -126,63 +122,6 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     setPasteData('');
   };
 
-  const handleGenerateWithAi = async () => {
-    setErrorMsg('');
-    setAiSuccessMsg('');
-
-    let targetUrl = attachmentUrl;
-
-    // Check if user selected a file to upload
-    if (fileToUpload) {
-      const isPdf = fileToUpload.name.toLowerCase().endsWith('.pdf');
-      if (!isPdf) {
-        setErrorMsg('AI Auto-Fill requires a PDF document. Please choose a PDF file.');
-        return;
-      }
-      try {
-        setIsUploading(true);
-        targetUrl = await uploadFile(fileToUpload, getToken);
-        setAttachmentUrl(targetUrl);
-        setIsUploading(false);
-      } catch (err) {
-        setIsUploading(false);
-        setErrorMsg('Failed to upload PDF file for AI processing: ' + (err.message || 'Upload failed.'));
-        return;
-      }
-    }
-
-    if (!targetUrl) {
-      setErrorMsg('Please choose and upload a PDF document first before generating AI content.');
-      return;
-    }
-
-    try {
-      setIsGeneratingAi(true);
-      const res = await generateFromPdf(targetUrl, getToken);
-      if (res.success && res.data) {
-        const { title: aiTitle, content: aiContent, type: aiType, timetableEntries: aiTimetable } = res.data;
-        if (aiTitle) setTitle(aiTitle);
-        if (aiType) setType(aiType);
-        if (aiType === 'TIMETABLE' && Array.isArray(aiTimetable) && aiTimetable.length > 0) {
-          setTimetableEntries(aiTimetable);
-        }
-        if (aiContent) {
-          setContent(aiContent);
-        }
-        setAiSuccessMsg('Form auto-filled successfully from PDF using Gemini AI!');
-        setTimeout(() => setAiSuccessMsg(''), 5000);
-      } else {
-        setErrorMsg(res.error || 'Failed to generate content from PDF.');
-      }
-    } catch (err) {
-      console.error('[AI Generation Error]:', err);
-      const rawMsg = err.response?.data?.error || err.message || 'AI Generation failed.';
-      setErrorMsg(typeof rawMsg === 'string' ? rawMsg : 'AI Generation failed.');
-    } finally {
-      setIsGeneratingAi(false);
-    }
-  };
-
   const handleSubmit = async (e, forcedStatus = null) => {
     e.preventDefault();
     setErrorMsg('');
@@ -266,45 +205,16 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               {initialData ? 'Edit Post' : 'Post Announcement / Event'}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleGenerateWithAi}
-              disabled={isGeneratingAi || isUploading || isSubmitting}
-              className="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-900 font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
-              title="Upload a PDF and click to auto-fill title, content & timetable via Gemini AI"
-            >
-              {isGeneratingAi ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Reading PDF...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 fill-slate-900" />
-                  <span className="hidden sm:inline">✨ Generate with AI</span>
-                  <span className="sm:hidden">AI Fill</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Form Body */}
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 transition-colors duration-300 overflow-y-auto flex-1">
-          {aiSuccessMsg && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center gap-2 animate-in fade-in duration-200">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>{aiSuccessMsg}</span>
-            </div>
-          )}
-
           {errorMsg && (
             <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-800 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -388,7 +298,6 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {/* Individual Course Buttons */}
               {availableCourseList.map((course) => {
                 const isSelected = selectedCourses.includes(course.code);
                 return (
@@ -492,7 +401,6 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               )}
 
               <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900/50">
-                {/* Desktop Table Header */}
                 <div className="hidden sm:grid grid-cols-[1fr_2fr_1.5fr_1fr_auto] gap-2 p-3 border-b border-slate-200 dark:border-slate-700 font-bold text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <div>Date</div>
                   <div>Subject / Paper</div>
@@ -649,31 +557,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                   Existing Attachment
                 </a>
               )}
-
-              {(fileToUpload || attachmentUrl) && (
-                <button
-                  type="button"
-                  onClick={handleGenerateWithAi}
-                  disabled={isGeneratingAi || isUploading || isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/60 dark:hover:bg-sky-900/80 text-sky-800 dark:text-sky-200 font-bold rounded-lg text-xs border border-sky-300 dark:border-sky-800 transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isGeneratingAi ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
-                      <span>Reading PDF with AI...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                      <span>Auto-Fill Form from PDF</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Select or upload a PDF document and click <strong className="text-slate-700 dark:text-slate-200">✨ Generate with AI</strong> to automatically populate Title, Category & Schedule.
-            </p>
           </div>
 
           {/* Options: Pin & Expiry Date */}
