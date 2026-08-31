@@ -6,21 +6,6 @@ Students can view, search, and filter announcements by course with **zero authen
 
 ---
 
-## 🚀 Features
-
-- **Public Student Feed (`/`)**:
-  - Filter notices by course: `BCOM`, `BAF`, `BBI`, `BFM`, `BMS`, `BSCIT`, `BMM`, `BA`, `BSC`.
-  - Real-time keyword search across notice titles and content.
-  - Automatic expiration filtering (hides expired notices).
-  - Pinned announcements float to the top.
-  - Attachment preview and download.
-- **HOD Portal (`/admin/dashboard`)**:
-  - Authenticated HOD access via Clerk.
-  - **Super-Admin Approval Security**: HOD accounts default to `isApproved: false`. Login and write actions are blocked server-side until approved by a super-admin.
-  - Form to create/edit announcements with multi-select course tags, pin toggle, expiration date picker, and file attachment.
-  - **UploadThing File Uploads**: Files upload directly through UploadThing backend service (`POST /api/upload`).
-  - **Server-Side Ownership Validation**: Strict assertion (`postedBy === req.auth.userId`) on every write route.
-  - **XSS Protection**: HTML content sanitized via `sanitize-html` before storing or rendering.
 
 ---
 
