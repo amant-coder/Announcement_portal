@@ -51,55 +51,80 @@ export const getAnnouncementById = async (id) => {
 };
 
 /**
+ * Helper: Safely retrieve session token and retry request with fresh token on 401
+ */
+const executeWithTokenRetry = async (getToken, apiCall) => {
+  let token = await getToken().catch(() => null);
+  if (!token) {
+    token = await getToken({ skipCache: true }).catch(() => null);
+  }
+  try {
+    return await apiCall(token);
+  } catch (err) {
+    if (err.response?.status === 401) {
+      const freshToken = await getToken({ skipCache: true }).catch(() => null);
+      if (freshToken) {
+        return await apiCall(freshToken);
+      }
+    }
+    throw err;
+  }
+};
+
+/**
  * Fetch announcements created by the currently logged-in HOD
  */
 export const getMyAnnouncements = async (getToken) => {
-  const token = await getToken();
-  const response = await api.get('/announcements/mine', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return executeWithTokenRetry(getToken, async (token) => {
+    const response = await api.get('/announcements/mine', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
   });
-  return response.data;
 };
 
 /**
  * Create a new announcement
  */
 export const createAnnouncement = async (data, getToken) => {
-  const token = await getToken();
-  const response = await api.post('/announcements', data, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return executeWithTokenRetry(getToken, async (token) => {
+    const response = await api.post('/announcements', data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
   });
-  return response.data;
 };
 
 /**
  * Update an existing announcement
  */
 export const updateAnnouncement = async (id, data, getToken) => {
-  const token = await getToken();
-  const response = await api.put(`/announcements/${id}`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return executeWithTokenRetry(getToken, async (token) => {
+    const response = await api.put(`/announcements/${id}`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
   });
-  return response.data;
 };
 
 /**
  * Delete an announcement
  */
 export const deleteAnnouncement = async (id, getToken) => {
-  const token = await getToken();
-  const response = await api.delete(`/announcements/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return executeWithTokenRetry(getToken, async (token) => {
+    const response = await api.delete(`/announcements/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
   });
-  return response.data;
 };
 
 /**

@@ -13,23 +13,21 @@ if (!CLERK_PUBLISHABLE_KEY) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
+  <BrowserRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}
+  >
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      afterSignOutUrl="/"
+      signInUrl="/admin/login"
+      signUpUrl="/admin/sign-up"
     >
-      <ClerkProvider
-        publishableKey={CLERK_PUBLISHABLE_KEY}
-        afterSignOutUrl="/"
-        signInUrl="/admin/login"
-        signUpUrl="/admin/sign-up"
-      >
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </ClerkProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </ClerkProvider>
+  </BrowserRouter>
 );
