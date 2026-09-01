@@ -6,8 +6,11 @@ import { ThemeProvider } from './context/ThemeContext';
 import App from './App';
 import './index.css';
 
-const CLERK_PUBLISHABLE_KEY =
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_sample_clerk_publishable_key';
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error("Missing Publishable Key: Please set VITE_CLERK_PUBLISHABLE_KEY in frontend/.env");
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -30,4 +33,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
-
