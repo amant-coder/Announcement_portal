@@ -12,17 +12,21 @@ import ProtectedRoute from './components/ProtectedRoute';
 export function App() {
   const location = useLocation();
 
-  // Normalize double slashes in URL (e.g., //admin/superadmin -> /admin/superadmin)
+  // Normalize double slashes in URL
   if (location.pathname.startsWith('//')) {
     const cleanPath = location.pathname.replace(/\/+/g, '/');
     return <Navigate to={cleanPath + location.search + location.hash} replace />;
   }
 
-  // Clerk controls these sub-routes entirely — hide app shell to avoid hook conflicts
-  const isClerkInternalRoute = location.pathname.includes('/tasks/');
+  // Hide app shell on Clerk internal tasks and Auth pages
+  const isAuthOrClerkRoute =
+    location.pathname.includes('/tasks/') ||
+    location.pathname.startsWith('/admin/login') ||
+    location.pathname.startsWith('/admin/sign-up');
+
   return (
     <div className="min-h-screen flex flex-col bg-college-lightBg dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      {!isClerkInternalRoute && <Navbar />}
+      {!isAuthOrClerkRoute && <Navbar />}
       <main className="flex-1 flex flex-col">
         <Routes>
           <Route path="/" element={<PublicFeed />} />
@@ -44,7 +48,7 @@ export function App() {
           <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </main>
-      {!isClerkInternalRoute && <Footer />}
+      {!isAuthOrClerkRoute && <Footer />}
     </div>
   );
 }

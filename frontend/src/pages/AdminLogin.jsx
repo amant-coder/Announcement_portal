@@ -1,8 +1,15 @@
 import React from 'react';
-import { SignIn } from '@clerk/clerk-react';
+import { SignIn, useAuth } from '@clerk/clerk-react';
+import { Navigate } from 'react-router-dom';
 import { GraduationCap, ShieldCheck } from 'lucide-react';
 
 export const AdminLogin = () => {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (isLoaded && isSignedIn) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return (
     <div className="min-h-[75vh] flex items-center justify-center py-10 px-4">
       <div className="w-full max-w-md space-y-6">
@@ -19,11 +26,10 @@ export const AdminLogin = () => {
           </p>
         </div>
 
-        {/* Clerk Prebuilt SignIn Component */}
+        {/* Clerk Prebuilt SignIn with Virtual Routing */}
         <div className="flex justify-center">
           <SignIn
-            path="/admin/login"
-            routing="path"
+            routing="virtual"
             signUpUrl="/admin/sign-up"
             forceRedirectUrl="/admin"
           />

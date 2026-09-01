@@ -42,19 +42,43 @@ export const AdminDashboard = () => {
       }
     } catch (err) {
       console.error('[Dashboard Fetch Error]:', err);
+      const statusCode = err.response?.status;
       const msg = err.response?.data?.error || err.message;
-      setError(typeof msg === 'string' ? msg : 'Failed to load your announcements.');
+      if (statusCode === 401 || (typeof msg === 'string' && msg.includes('Unauthorized'))) {
+        setError('Your session token has expired or is out of sync. Please click "Sign Out & Re-login" to sign back in.');
+      } else {
+        setError(typeof msg === 'string' ? msg : 'Failed to load your announcements.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    // Reload user metadata from Clerk so updated course permissions take effect immediately
-    if (user && typeof user.reload === 'function') {
-      user.reload().catch((err) => console.warn('[Clerk user reload notice]:', err.message));
+    let isMounted = true;
+
+    const initDashboard = async () => {
+      if (user && typeof user.reload === 'function') {
+        try {
+          await user.reload();
+        } catch (err) {
+          console.warn('[Clerk user reload notice]:', err.message);
+        }
+      }
+      if (isMounted) {
+        await fetchDashboardData();
+      }
+    };
+
+    if (user?.id) {
+      initDashboard();
+    } else {
+      fetchDashboardData();
     }
-    fetchDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user?.id]);
 
   const showToast = (msg) => {
@@ -99,6 +123,17 @@ export const AdminDashboard = () => {
       setError(typeof msg === 'string' ? msg : 'Failed to delete announcement.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Sign out and re-login handler
+  const handleSignOutAndRelogin = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.warn('[SignOut error]:', err);
+    } finally {
+      window.location.href = '/admin/login';
     }
   };
 
@@ -150,7 +185,7 @@ export const AdminDashboard = () => {
             </button>
 
             <button
-              onClick={() => signOut({ redirectUrl: '/admin/login' })}
+              onClick={handleSignOutAndRelogin}
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5"
               title="Sign Out"
             >
@@ -194,7 +229,7 @@ export const AdminDashboard = () => {
               <span>{error}</span>
             </div>
             <button
-              onClick={() => signOut({ redirectUrl: '/admin/login' })}
+              onClick={handleSignOutAndRelogin}
               className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-sm flex items-center space-x-1.5 shrink-0 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
