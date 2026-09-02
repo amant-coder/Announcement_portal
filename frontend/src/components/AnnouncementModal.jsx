@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties } from 'lucide-react';
+import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Users, Siren, Trophy } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { uploadFile } from '../services/upload';
@@ -20,6 +20,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
 
   const [timetableEntries, setTimetableEntries] = useState([{ subject: '', date: '', time: '', room: '' }]);
   const [selectedYears, setSelectedYears] = useState(['FY', 'SY', 'TY']);
+  const [selectedCommittees, setSelectedCommittees] = useState([]);
   const [showPasteParser, setShowPasteParser] = useState(false);
   const [pasteData, setPasteData] = useState('');
 
@@ -27,6 +28,19 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const AVAILABLE_COMMITTEES = [
+    'Placement',
+    'Cultural',
+    'Student Council',
+    'Sports',
+    'NCC',
+    'NSS',
+    'DLLE',
+    'Rotaract',
+    'Literary Committee',
+    'OBC/SC Cell',
+  ];
 
   // Extract allowed courses for this HOD from Clerk publicMetadata
   const userAllowedCourses = user?.publicMetadata?.allowedCourses;
@@ -54,6 +68,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
         setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
       }
       setSelectedYears(initialData.targetYears && initialData.targetYears.length > 0 ? initialData.targetYears : ['FY', 'SY', 'TY']);
+      setSelectedCommittees(initialData.targetCommittees || []);
     } else {
       setTitle('');
       setContent('');
@@ -70,6 +85,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       setType('NOTICE');
       setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
       setSelectedYears(['FY', 'SY', 'TY']);
+      setSelectedCommittees([]);
     }
     setFileToUpload(null);
     setErrorMsg('');
@@ -83,7 +99,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     ? courses
     : [
       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BMM' }, { code: 'BA' }, { code: 'BSC' },
+      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' },
     ];
 
   // Filter available courses based on HOD permissions
@@ -150,9 +166,16 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       return;
     }
 
-    if (selectedYears.length === 0) {
-      setErrorMsg('Please select at least one target year (FY, SY, or TY).');
-      return;
+    if (type === 'COMMITTEE') {
+      if (selectedCommittees.length === 0) {
+        setErrorMsg('Please select at least one target committee tag.');
+        return;
+      }
+    } else {
+      if (selectedYears.length === 0) {
+        setErrorMsg('Please select at least one target year (FY, SY, or TY).');
+        return;
+      }
     }
 
     try {
@@ -180,7 +203,8 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
           ...e,
           date: new Date(e.date).toISOString()
         })) : undefined,
-        targetYears: selectedYears,
+        targetYears: type === 'COMMITTEE' ? [] : selectedYears,
+        targetCommittees: type === 'COMMITTEE' ? selectedCommittees : [],
       };
 
       await onSave(payload);
@@ -228,44 +252,70 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Post Type / Category *
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <button
                 type="button"
                 onClick={() => setType('NOTICE')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
                   type === 'NOTICE'
                     ? 'bg-college-navy text-college-gold border-college-navy shadow-sm ring-2 ring-college-gold/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Bell className="w-4 h-4 text-sky-400" />
+                <Bell className="w-3.5 h-3.5 text-sky-400" />
                 <span>Academic Notice</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setType('EVENT')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
-                  type === 'EVENT'
-                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm ring-2 ring-amber-400/40'
+                onClick={() => setType('COMMITTEE')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
+                  type === 'COMMITTEE' || type === 'EVENT'
+                    ? 'bg-purple-700 text-white border-purple-800 shadow-sm ring-2 ring-purple-500/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Calendar className="w-4 h-4 text-amber-300" />
-                <span>College Event</span>
+                <Users className="w-3.5 h-3.5 text-purple-300" />
+                <span>Committee</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setType('TIMETABLE')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
                   type === 'TIMETABLE'
                     ? 'bg-college-navy text-white border-college-navy shadow-sm ring-2 ring-college-navy/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Clock className="w-4 h-4 text-emerald-400" />
-                <span>Exam Timetable</span>
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Exam Schedule</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setType('WINNERS')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
+                  type === 'WINNERS'
+                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm ring-2 ring-amber-400/40'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                <span>Winners Gallery</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setType('EMERGENCY')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
+                  type === 'EMERGENCY'
+                    ? 'bg-rose-600 text-white border-rose-700 shadow-sm ring-2 ring-rose-400/40'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Siren className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                <span>Emergency Alert</span>
               </button>
             </div>
           </div>
@@ -299,6 +349,30 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* ALL Courses Option */}
+              {(() => {
+                const isAllCoursesSelected = availableCourseList.length > 0 && availableCourseList.every((c) => selectedCourses.includes(c.code));
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAllCoursesSelected) {
+                        setSelectedCourses([]);
+                      } else {
+                        setSelectedCourses(availableCourseList.map((c) => c.code));
+                      }
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${
+                      isAllCoursesSelected
+                        ? 'bg-college-navy text-college-gold border-college-navy ring-2 ring-college-gold/40 shadow-sm'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {isAllCoursesSelected ? '✓ ALL (All Courses)' : '+ ALL (All Courses)'}
+                  </button>
+                );
+              })()}
+
               {/* Individual Course Buttons */}
               {availableCourseList.map((course) => {
                 const isSelected = selectedCourses.includes(course.code);
@@ -319,41 +393,124 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             </div>
           </div>
 
-          {/* Target Year Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Target Year(s) *
-            </label>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-              Select which year's students should see this announcement.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {['FY', 'SY', 'TY'].map((yr) => {
-                const isSelected = selectedYears.includes(yr);
-                const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
-                return (
-                  <button
-                    type="button"
-                    key={yr}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedYears(selectedYears.filter((y) => y !== yr));
-                      } else {
-                        setSelectedYears([...selectedYears, yr]);
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+          {/* Target Committee OR Target Year Selection */}
+          {type === 'COMMITTEE' ? (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Target Committee Tag(s) *
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                Select which committee(s) this notice belongs to.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {/* ALL Committees Option */}
+                {(() => {
+                  const isAllCommitteesSelected = AVAILABLE_COMMITTEES.length > 0 && AVAILABLE_COMMITTEES.every((c) => selectedCommittees.includes(c));
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAllCommitteesSelected) {
+                          setSelectedCommittees([]);
+                        } else {
+                          setSelectedCommittees([...AVAILABLE_COMMITTEES]);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${
+                        isAllCommitteesSelected
+                          ? 'bg-purple-700 text-white border-purple-800 ring-2 ring-purple-500/40 shadow-sm'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
                       }`}
-                  >
-                    {isSelected ? `✓ ${yr}` : `+ ${yr}`}
-                    <span className="font-normal opacity-70">{yearLabels[yr]}</span>
-                  </button>
-                );
-              })}
+                    >
+                      {isAllCommitteesSelected ? '✓ ALL (All Committees)' : '+ ALL (All Committees)'}
+                    </button>
+                  );
+                })()}
+
+                {AVAILABLE_COMMITTEES.map((comm) => {
+                  const isSelected = selectedCommittees.includes(comm);
+                  return (
+                    <button
+                      type="button"
+                      key={comm}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCommittees(selectedCommittees.filter((c) => c !== comm));
+                        } else {
+                          setSelectedCommittees([...selectedCommittees, comm]);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${isSelected
+                          ? 'bg-purple-700 text-white border-purple-800 ring-2 ring-purple-500/40 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+                        }`}
+                    >
+                      {isSelected ? `✓ ${comm}` : `+ ${comm}`}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Target Year(s) *
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                Select which year's students should see this announcement.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {/* ALL Years Option */}
+                {(() => {
+                  const isAllYearsSelected = ['FY', 'SY', 'TY'].every((y) => selectedYears.includes(y));
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAllYearsSelected) {
+                          setSelectedYears([]);
+                        } else {
+                          setSelectedYears(['FY', 'SY', 'TY']);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                        isAllYearsSelected
+                          ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {isAllYearsSelected ? '✓ ALL (All Years)' : '+ ALL (All Years)'}
+                    </button>
+                  );
+                })()}
+
+                {['FY', 'SY', 'TY'].map((yr) => {
+                  const isSelected = selectedYears.includes(yr);
+                  const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
+                  return (
+                    <button
+                      type="button"
+                      key={yr}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedYears(selectedYears.filter((y) => y !== yr));
+                        } else {
+                          setSelectedYears([...selectedYears, yr]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+                        }`}
+                    >
+                      {isSelected ? `✓ ${yr}` : `+ ${yr}`}
+                      <span className="font-normal opacity-70">{yearLabels[yr]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Content Textarea OR Timetable Editor */}
           {type === 'TIMETABLE' ? (

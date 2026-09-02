@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar, GraduationCap, ArrowUp, BellRing, Check, Loader2 } from 'lucide-react';
+import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar, GraduationCap, ArrowUp, BellRing, Check, Loader2, Users, Siren, CalendarDays, Trophy } from 'lucide-react';
 import { getCourses, getAnnouncements, getVapidPublicKey, subscribeNotifications, unsubscribeNotifications } from '../services/api';
 import { getBookmarks } from '../utils/bookmarks';
 import CourseFilterChips from '../components/CourseFilterChips';
@@ -38,7 +38,9 @@ export const PublicFeed = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedYear, setSelectedYear] = useState('ALL');
+  const [selectedCommittee, setSelectedCommittee] = useState('ALL');
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [isCalendarMode, setIsCalendarMode] = useState(false);
 
   // Push notifications states
   const [swRegistration, setSwRegistration] = useState(null);
@@ -54,12 +56,16 @@ export const PublicFeed = () => {
   // Sync selectedType with URL hash / search params when clicking Navbar links
   const applyHashFilter = () => {
     const hash = window.location.hash;
-    if (hash === '#events') {
-      setSelectedType('EVENT');
+    if (hash === '#emergency') {
+      setSelectedType('EMERGENCY');
+    } else if (hash === '#committee' || hash === '#events') {
+      setSelectedType('COMMITTEE');
     } else if (hash === '#notices') {
       setSelectedType('NOTICE');
     } else if (hash === '#timetables') {
       setSelectedType('TIMETABLE');
+    } else if (hash === '#winners') {
+      setSelectedType('WINNERS');
     } else if (!hash || hash === '#') {
       // No hash means "Home" was clicked — reset to ALL
       setSelectedType('ALL');
@@ -71,7 +77,7 @@ export const PublicFeed = () => {
     // Also check search params
     const params = new URLSearchParams(location.search);
     const typeParam = params.get('type');
-    if (typeParam && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(typeParam.toUpperCase())) {
+    if (typeParam && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'].includes(typeParam.toUpperCase())) {
       setSelectedType(typeParam.toUpperCase());
     }
   }, [location.hash, location.search]);
@@ -202,7 +208,8 @@ export const PublicFeed = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate, selectedType, selectedYear);
+      const apiType = selectedType === 'WINNERS' ? 'ALL' : selectedType;
+      const res = await getAnnouncements(selectedCourse, searchQuery, startDate, endDate, apiType, selectedYear);
       if (res.success) {
         setAnnouncements(res.data);
       }
@@ -226,13 +233,53 @@ export const PublicFeed = () => {
     setBookmarkedIds(getBookmarks());
   };
 
-  // Filter displayed items if "Bookmarks Only" is selected
-  const displayedAnnouncements = showBookmarksOnly
-    ? announcements.filter((item) => bookmarkedIds.includes(item._id))
-    : announcements;
+  // Detect active Emergency Alerts (type === EMERGENCY or titles matching emergency keywords)
+  const emergencyAnnouncements = announcements.filter(item => 
+    item.type === 'EMERGENCY' || /emergency|heavy\s*rain|holiday|postponed|urgent\s*alert|disaster/i.test(item.title)
+  );
+
+  // Filter displayed items if "Winners Gallery", "Committee Filter", or "Bookmarks Only" is selected
+  const displayedAnnouncements = announcements.filter((item) => {
+    if (showBookmarksOnly && !bookmarkedIds.includes(item._id)) return false;
+    if (selectedType === 'WINNERS') {
+      return item.type === 'WINNERS' || /winner|trophy|champion|first\s*prize|second\s*prize|award|achievement|medal/i.test(item.title + ' ' + (item.content || ''));
+    }
+    if (selectedType === 'COMMITTEE' && selectedCommittee !== 'ALL') {
+      return item.targetCommittees && item.targetCommittees.includes(selectedCommittee);
+    }
+    return true;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full relative">
+      {/* 🔴 High Priority Emergency Alert Banner (Rain Holiday / Exam Postponed) */}
+      {emergencyAnnouncements.length > 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-xl border border-rose-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-white/20 rounded-xl shrink-0">
+              <Siren className="w-6 h-6 text-yellow-300 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-yellow-400 text-rose-950 font-black text-[10px] uppercase rounded tracking-wider">
+                  EMERGENCY ALERT
+                </span>
+                <span className="text-xs text-rose-100 font-bold">Official Urgent Notice</span>
+              </div>
+              <h2 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
+                {emergencyAnnouncements[0].title}
+              </h2>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedType('EMERGENCY')}
+            className="px-4 py-2 bg-white text-rose-700 hover:bg-rose-50 rounded-xl font-bold text-xs shadow-md shrink-0 transition-colors"
+          >
+            View Urgent Alerts ({emergencyAnnouncements.length})
+          </button>
+        </div>
+      )}
+
       {/* College Hero Section */}
       <div id="events" className="bg-gradient-to-r from-college-navy via-college-navyLight to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-lg mb-6 relative overflow-hidden border border-college-gold/20">
         <div className="relative z-10 max-w-3xl">
@@ -244,7 +291,7 @@ export const PublicFeed = () => {
             Academic Announcements & Notices
           </h1>
           <p className="text-slate-350 text-xs sm:text-sm leading-normal">
-            Official department notices, timetables, and college events.
+            Official department notices, timetables, committee updates, and emergency alerts.
           </p>
 
           {/* Interactive Block Grid */}
@@ -265,9 +312,11 @@ export const PublicFeed = () => {
         onSelect={(typeId) => setSelectedType(typeId)}
         items={[
           { id: 'ALL', label: 'All Notices', icon: Layers },
-          { id: 'EVENT', label: 'Events', icon: Calendar },
+          { id: 'EMERGENCY', label: 'Emergency Alerts', icon: Siren },
+          { id: 'COMMITTEE', label: 'Committee Notices', icon: Users },
           { id: 'NOTICE', label: 'Academic Notices', icon: Bell },
           { id: 'TIMETABLE', label: 'Timetables', icon: RefreshCw },
+          { id: 'WINNERS', label: 'Winners Gallery', icon: Trophy },
         ]}
       />
 
@@ -283,7 +332,7 @@ export const PublicFeed = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search notices by title, exam, timetable, assignment..."
+              placeholder="Search notices, timetables, files, or emergency alerts..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-college-navy/30 dark:focus:ring-college-gold text-sm placeholder:text-slate-400 transition-all"
             />
             {searchQuery && (
@@ -296,8 +345,22 @@ export const PublicFeed = () => {
             )}
           </div>
 
-          {/* Bookmarks Toggle & Refresh */}
+          {/* Controls: Calendar Mode, Bookmarks, Refresh */}
           <div className="flex items-center space-x-2 shrink-0 w-full sm:w-auto justify-end">
+            {/* Calendar Mode Toggle */}
+            <button
+              onClick={() => setIsCalendarMode(!isCalendarMode)}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 border flex-1 sm:flex-initial justify-center ${
+                isCalendarMode
+                  ? 'bg-college-navy text-college-gold border-college-navy shadow-md ring-2 ring-college-gold/40'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+              }`}
+              title="Toggle Calendar View"
+            >
+              <CalendarDays className="w-4 h-4 text-emerald-500" />
+              <span>{isCalendarMode ? 'Grid View' : 'Calendar Mode'}</span>
+            </button>
+
             <button
               onClick={() => {
                 setShowBookmarksOnly(!showBookmarksOnly);
@@ -332,35 +395,75 @@ export const PublicFeed = () => {
           onSelectCourse={(code) => setSelectedCourse(code)}
         />
 
-        {/* Year Filter Chips */}
-        <div className="w-full overflow-x-auto py-2 scrollbar-none">
-          <div className="flex items-center space-x-2 min-w-max">
-            <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
-              <GraduationCap className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-              Year:
+        {/* Committee OR Year Filter Chips */}
+        {selectedType === 'COMMITTEE' ? (
+          <div className="w-full overflow-x-auto py-2 scrollbar-none">
+            <div className="flex items-center space-x-2 min-w-max">
+              <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
+                <Users className="w-3.5 h-3.5 mr-1 text-purple-500" />
+                Committee:
+              </div>
+              {[
+                { id: 'ALL', label: 'All Committees' },
+                { id: 'Placement', label: 'Placement Cell' },
+                { id: 'Cultural', label: 'Cultural Committee' },
+                { id: 'Student Council', label: 'Student Council' },
+                { id: 'Sports', label: 'Sports Committee' },
+                { id: 'NCC', label: 'NCC' },
+                { id: 'NSS', label: 'NSS' },
+                { id: 'DLLE', label: 'DLLE' },
+                { id: 'Rotaract', label: 'Rotaract Club' },
+                { id: 'Literary Committee', label: 'Literary Committee' },
+                { id: 'OBC/SC Cell', label: 'OBC/SC Cell' },
+              ].map((comm) => {
+                const isActive = selectedCommittee === comm.id;
+                return (
+                  <button
+                    key={comm.id}
+                    onClick={() => setSelectedCommittee(comm.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
+                      isActive
+                        ? 'bg-purple-700 dark:bg-purple-600 text-white border-purple-800 dark:border-purple-500 shadow-md ring-2 ring-purple-400/40 scale-105'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={comm.label}
+                  >
+                    {comm.id === 'ALL' ? comm.label : comm.id}
+                  </button>
+                );
+              })}
             </div>
-            {[{ id: 'ALL', label: 'All Years' }, { id: 'FY', label: 'First Year' }, { id: 'SY', label: 'Second Year' }, { id: 'TY', label: 'Third Year' }].map((yr) => {
-              const isActive = selectedYear === yr.id;
-              return (
-                <button
-                  key={yr.id}
-                  onClick={() => setSelectedYear(yr.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
-                    isActive
-                      ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-700 dark:border-emerald-400 shadow-md ring-2 ring-emerald-400/40 scale-105'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
-                  }`}
-                  title={yr.label}
-                >
-                  {yr.id === 'ALL' ? yr.id : yr.id}
-                  <span className="ml-1.5 opacity-60 font-normal hidden lg:inline">
-                    • {yr.label}
-                  </span>
-                </button>
-              );
-            })}
           </div>
-        </div>
+        ) : (
+          <div className="w-full overflow-x-auto py-2 scrollbar-none">
+            <div className="flex items-center space-x-2 min-w-max">
+              <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
+                <GraduationCap className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                Year:
+              </div>
+              {[{ id: 'ALL', label: 'All Years' }, { id: 'FY', label: 'First Year' }, { id: 'SY', label: 'Second Year' }, { id: 'TY', label: 'Third Year' }].map((yr) => {
+                const isActive = selectedYear === yr.id;
+                return (
+                  <button
+                    key={yr.id}
+                    onClick={() => setSelectedYear(yr.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
+                      isActive
+                        ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-700 dark:border-emerald-400 shadow-md ring-2 ring-emerald-400/40 scale-105'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={yr.label}
+                  >
+                    {yr.id === 'ALL' ? yr.id : yr.id}
+                    <span className="ml-1.5 opacity-60 font-normal hidden lg:inline">
+                      • {yr.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Announcements Feed Section */}
@@ -416,18 +519,75 @@ export const PublicFeed = () => {
           </div>
         )}
 
-        {/* Announcement Grid */}
+        {/* Announcement Grid OR Calendar Mode View */}
         {!isLoading && !error && displayedAnnouncements.length > 0 && (
-          <div className="columns-1 md:columns-2 gap-6 [column-fill:_balance] w-full">
-            {displayedAnnouncements.map((item) => (
-              <div key={item._id} className="break-inside-avoid mb-6">
-                <AnnouncementCard
-                  announcement={item}
-                  onBookmarkToggle={handleBookmarkToggleInCard}
-                />
+          isCalendarMode ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm mb-6">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-700 pb-3">
+                <div className="flex items-center space-x-2">
+                  <CalendarDays className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <h3 className="text-base font-extrabold text-slate-800 dark:text-white">
+                    Notice & Timetable Calendar View
+                  </h3>
+                </div>
+                <span className="text-xs text-slate-500 font-bold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">
+                  {displayedAnnouncements.length} Events & Notices Scheduled
+                </span>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedAnnouncements.map((item) => {
+                  const itemDate = new Date(item.createdAt).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  });
+                  return (
+                    <div
+                      key={item._id}
+                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-college-gold transition-all shadow-xs"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase ${
+                          item.type === 'EMERGENCY'
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                            : item.type === 'TIMETABLE'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : item.type === 'COMMITTEE'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
+                            : 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300'
+                        }`}>
+                          {item.type || 'NOTICE'}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">{itemDate}</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 mb-1">
+                        {item.title}
+                      </h4>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(item.courseCodes || []).map((code) => (
+                          <span key={code} className="text-[10px] font-bold px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="columns-1 md:columns-2 gap-6 [column-fill:_balance] w-full">
+              {displayedAnnouncements.map((item) => (
+                <div key={item._id} className="break-inside-avoid mb-6">
+                  <AnnouncementCard
+                    announcement={item}
+                    onBookmarkToggle={handleBookmarkToggleInCard}
+                  />
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
       {/* Push Notifications Subscription Panel (Footer Part) */}
@@ -475,7 +635,7 @@ export const PublicFeed = () => {
                   >
                     {(courses.length > 0 ? courses : [
                       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BMM' }, { code: 'BA' }, { code: 'BSC' }
+                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' }
                     ]).map((c) => (
                       <option key={c.code} value={c.code}>{c.code}</option>
                     ))}

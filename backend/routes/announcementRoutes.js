@@ -98,10 +98,16 @@ router.get('/', async (req, res) => {
       $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
     };
 
-    // Filter by announcement type (NOTICE, EVENT, TIMETABLE) if provided
+    // Filter by announcement type (NOTICE, COMMITTEE, EVENT, TIMETABLE, EMERGENCY, WINNERS) if provided
     const categoryParam = req.query.category || req.query.type;
-    if (categoryParam && typeof categoryParam === 'string' && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(categoryParam.trim().toUpperCase())) {
+    if (categoryParam && typeof categoryParam === 'string' && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'].includes(categoryParam.trim().toUpperCase())) {
       queryFilter.type = categoryParam.trim().toUpperCase();
+    }
+
+    // Filter by committee if provided
+    const committeeParam = req.query.committee;
+    if (committeeParam && typeof committeeParam === 'string' && committeeParam.trim().toUpperCase() !== 'ALL') {
+      queryFilter.targetCommittees = committeeParam.trim();
     }
 
     // Filter by date range if provided and valid
@@ -267,9 +273,9 @@ router.post(
     }
 
     try {
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears, targetCommittees } = req.body;
       
-      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
+      const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
 
       if (targetType === 'TIMETABLE') {
         if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
@@ -305,10 +311,7 @@ router.post(
       // Validate targetYears if provided
       const validYears = ['FY', 'SY', 'TY'];
       let resolvedYears = validYears; // default to all
-      if (targetYears !== undefined) {
-        if (!Array.isArray(targetYears) || targetYears.length === 0) {
-          return res.status(400).json({ success: false, error: 'targetYears must be a non-empty array of FY, SY, TY.' });
-        }
+      if (targetYears !== undefined && Array.isArray(targetYears) && targetYears.length > 0) {
         const normalized = targetYears.map((y) => String(y).trim().toUpperCase());
         const invalid = normalized.filter((y) => !validYears.includes(y));
         if (invalid.length > 0) {
@@ -348,6 +351,7 @@ router.post(
         type: targetType,
         timetableEntries: targetType === 'TIMETABLE' ? timetableEntries : undefined,
         targetYears: resolvedYears,
+        targetCommittees: Array.isArray(targetCommittees) ? targetCommittees.map(c => String(c).trim()) : [],
       });
 
       await newAnnouncement.save();
@@ -422,9 +426,9 @@ router.put(
         });
       }
 
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears, targetCommittees } = req.body;
 
-      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
+      const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
 
       if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {
         if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
@@ -463,8 +467,11 @@ router.put(
       if (attachmentUrl !== undefined) announcement.attachmentUrl = attachmentUrl || null;
       if (expiresAt !== undefined) announcement.expiresAt = expiresAt ? new Date(expiresAt) : null;
       if (status !== undefined && ['DRAFT', 'PUBLISHED'].includes(status)) announcement.status = status;
-      if (type !== undefined && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase())) {
+      if (type !== undefined && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'].includes(String(type).toUpperCase())) {
         announcement.type = String(type).toUpperCase();
+      }
+      if (targetCommittees !== undefined) {
+        announcement.targetCommittees = Array.isArray(targetCommittees) ? targetCommittees.map(c => String(c).trim()) : [];
       }
 
       if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {

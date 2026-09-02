@@ -35,19 +35,19 @@ const initialCourses = [
     stream: 'Information Technology',
   },
   {
-    code: 'BMM',
-    name: 'Bachelor of Mass Media',
-    stream: 'Media & Mass Comm',
+    code: 'BSCCS',
+    name: 'BSc Computer Science',
+    stream: 'Computer Science',
   },
   {
-    code: 'BA',
-    name: 'Bachelor of Arts',
-    stream: 'Arts',
+    code: 'MCOM',
+    name: 'Master of Commerce',
+    stream: 'Post Graduation',
   },
   {
-    code: 'BSC',
-    name: 'Bachelor of Science',
-    stream: 'Science',
+    code: 'MSCFM',
+    name: 'MSc Financial Mathematics',
+    stream: 'Post Graduation',
   },
 ];
 
