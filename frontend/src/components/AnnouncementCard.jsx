@@ -61,6 +61,7 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
   const isCommittee = announcement.type === 'COMMITTEE' || announcement.type === 'EVENT';
   const isEvent = announcement.type === 'EVENT';
   const isTimetable = announcement.type === 'TIMETABLE';
+  const isWinners = announcement.type === 'WINNERS';
   const authorName = postedByName || 'HOD';
 
   let nearestUpcomingIdx = -1;
@@ -92,6 +93,8 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
         className={`group bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full relative ${
           isEmergency
             ? 'border-rose-500 dark:border-rose-600 shadow-rose-500/20 ring-2 ring-rose-500/30'
+            : isWinners
+            ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 ring-2 ring-amber-400/30'
             : isPinned
             ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/10'
             : isCommittee
@@ -103,6 +106,8 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
       <div className={`px-5 py-3 flex items-center justify-between ${
         isEmergency
           ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 animate-pulse'
+          : isWinners
+          ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600'
           : isCommittee
           ? 'bg-gradient-to-r from-purple-700 to-indigo-800'
           : 'bg-gradient-to-r from-college-navy to-slate-800'
@@ -113,6 +118,11 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/25 text-white border border-white/40 flex items-center gap-1 backdrop-blur-sm shadow-sm">
               <Siren className="w-3.5 h-3.5 text-yellow-300 animate-spin" />
               EMERGENCY ALERT
+            </span>
+          ) : isWinners ? (
+            <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-slate-950/30 text-white border border-white/40 flex items-center gap-1 backdrop-blur-sm">
+              <Trophy className="w-3.5 h-3.5 text-amber-200" />
+              WINNERS GALLERY
             </span>
           ) : isCommittee ? (
             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/20 text-white border border-white/30 flex items-center gap-1 backdrop-blur-sm">

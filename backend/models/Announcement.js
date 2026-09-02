@@ -75,7 +75,7 @@ const announcementSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY'],
+      enum: ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY', 'WINNERS'],
       default: 'NOTICE',
     },
     timetableEntries: {

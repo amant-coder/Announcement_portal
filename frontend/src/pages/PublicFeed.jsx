@@ -242,7 +242,7 @@ export const PublicFeed = () => {
   const displayedAnnouncements = announcements.filter((item) => {
     if (showBookmarksOnly && !bookmarkedIds.includes(item._id)) return false;
     if (selectedType === 'WINNERS') {
-      return /winner|trophy|champion|first\s*prize|second\s*prize|award|achievement|medal/i.test(item.title + ' ' + (item.content || ''));
+      return item.type === 'WINNERS' || /winner|trophy|champion|first\s*prize|second\s*prize|award|achievement|medal/i.test(item.title + ' ' + (item.content || ''));
     }
     if (selectedType === 'COMMITTEE' && selectedCommittee !== 'ALL') {
       return item.targetCommittees && item.targetCommittees.includes(selectedCommittee);
