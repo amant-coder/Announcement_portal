@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pin, Calendar, FileText, Download, Edit3, Trash2, Tag, AlertCircle, Bookmark, ExternalLink, Bell, Clock, User, Building2, ChevronDown, ChevronUp, Share2, Users } from 'lucide-react';
+import { Pin, Calendar, FileText, Download, Edit3, Trash2, Tag, AlertCircle, Bookmark, ExternalLink, Bell, Clock, User, Building2, ChevronDown, ChevronUp, Share2, Users, Siren } from 'lucide-react';
 import { isBookmarked as checkIsBookmarked, toggleBookmark } from '../utils/bookmarks';
 import { TiltedCard } from './reactbits/TiltedCard';
 import { MagneticButton } from './reactbits/MagneticButton';
@@ -57,6 +57,7 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
     })
     : null;
 
+  const isEmergency = announcement.type === 'EMERGENCY';
   const isCommittee = announcement.type === 'COMMITTEE' || announcement.type === 'EVENT';
   const isEvent = announcement.type === 'EVENT';
   const isTimetable = announcement.type === 'TIMETABLE';
@@ -89,7 +90,9 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
     <TiltedCard maxTilt={8} scale={1.01} className="h-full">
       <div
         className={`group bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full relative ${
-          isPinned
+          isEmergency
+            ? 'border-rose-500 dark:border-rose-600 shadow-rose-500/20 ring-2 ring-rose-500/30'
+            : isPinned
             ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/10'
             : isCommittee
             ? 'border-purple-200 dark:border-purple-900/60'
@@ -98,13 +101,20 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
       >
       {/* ── Top Bar: College Branding + Type Badge ── */}
       <div className={`px-5 py-3 flex items-center justify-between ${
-        isCommittee
+        isEmergency
+          ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 animate-pulse'
+          : isCommittee
           ? 'bg-gradient-to-r from-purple-700 to-indigo-800'
           : 'bg-gradient-to-r from-college-navy to-slate-800'
       }`}>
         <div className="flex items-center space-x-2">
           {/* Type Badge */}
-          {isCommittee ? (
+          {isEmergency ? (
+            <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/25 text-white border border-white/40 flex items-center gap-1 backdrop-blur-sm shadow-sm">
+              <Siren className="w-3.5 h-3.5 text-yellow-300 animate-spin" />
+              EMERGENCY ALERT
+            </span>
+          ) : isCommittee ? (
             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/20 text-white border border-white/30 flex items-center gap-1 backdrop-blur-sm">
               <Users className="w-3 h-3" />
               COMMITTEE NOTICE

@@ -18,12 +18,21 @@ const defaultCourses = [
  */
 const ensureCoursesExist = async () => {
   try {
-    const existingCount = await Course.countDocuments();
-    if (existingCount === 0) {
-      console.log('[Auto-Seeding Courses]: Database has no course records. Populating default courses...');
-      await Course.insertMany(defaultCourses);
-      console.log('[Auto-Seeding Courses]: Successfully populated 9 default courses.');
+    const validCodes = defaultCourses.map((c) => c.code);
+    
+    // Upsert each default course
+    for (const course of defaultCourses) {
+      await Course.updateOne(
+        { code: course.code },
+        { $set: course },
+        { upsert: true }
+      );
     }
+
+    // Remove any obsolete courses (e.g. BA, BSC, BMM)
+    await Course.deleteMany({ code: { $nin: validCodes } });
+
+    console.log('[Auto-Seeding Courses]: Synchronized default course records in database.');
   } catch (err) {
     console.error('[Ensure Courses Error]:', err.message);
   }

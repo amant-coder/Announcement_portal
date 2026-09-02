@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Users } from 'lucide-react';
+import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Users, Siren } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { uploadFile } from '../services/upload';
@@ -228,44 +228,57 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Post Type / Category *
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setType('NOTICE')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
                   type === 'NOTICE'
                     ? 'bg-college-navy text-college-gold border-college-navy shadow-sm ring-2 ring-college-gold/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Bell className="w-4 h-4 text-sky-400" />
+                <Bell className="w-3.5 h-3.5 text-sky-400" />
                 <span>Academic Notice</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setType('COMMITTEE')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
                   type === 'COMMITTEE' || type === 'EVENT'
                     ? 'bg-purple-700 text-white border-purple-800 shadow-sm ring-2 ring-purple-500/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Users className="w-4 h-4 text-purple-300" />
-                <span>Committee Notice</span>
+                <Users className="w-3.5 h-3.5 text-purple-300" />
+                <span>Committee</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setType('TIMETABLE')}
-                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
                   type === 'TIMETABLE'
                     ? 'bg-college-navy text-white border-college-navy shadow-sm ring-2 ring-college-navy/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Clock className="w-4 h-4 text-emerald-400" />
-                <span>Exam Timetable</span>
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Exam Schedule</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setType('EMERGENCY')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-1.5 ${
+                  type === 'EMERGENCY'
+                    ? 'bg-rose-600 text-white border-rose-700 shadow-sm ring-2 ring-rose-400/40'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Siren className="w-3.5 h-3.5 text-rose-300 animate-pulse" />
+                <span>Emergency Alert</span>
               </button>
             </div>
           </div>
