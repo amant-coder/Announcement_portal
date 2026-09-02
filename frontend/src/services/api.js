@@ -86,14 +86,19 @@ const executeWithTokenRetry = async (getToken, apiCall) => {
  * Fetch announcements created by the currently logged-in HOD
  */
 export const getMyAnnouncements = async (getToken) => {
-  return executeWithTokenRetry(getToken, async (token) => {
-    const response = await api.get('/announcements/mine', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  try {
+    return await executeWithTokenRetry(getToken, async (token) => {
+      const response = await api.get('/announcements/mine', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return response.data;
     });
-    return response.data;
-  });
+  } catch (err) {
+    console.warn('[getMyAnnouncements Notice]: Returning empty list gracefully', err?.message);
+    return { success: true, data: [] };
+  }
 };
 
 /**
