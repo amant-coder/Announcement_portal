@@ -30,16 +30,12 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [errorMsg, setErrorMsg] = useState('');
 
   const AVAILABLE_COMMITTEES = [
-    'Placement',
-    'Cultural',
-    'Student Council',
+    'CC',
     'Sports',
-    'NCC',
     'NSS',
+    'NCC',
     'DLLE',
     'Rotaract',
-    'Literary Committee',
-    'OBC/SC Cell',
   ];
 
   // Extract allowed courses for this HOD from Clerk publicMetadata
