@@ -1,4 +1,4 @@
-const { getAuth, clerkClient } = require('@clerk/express');
+const { getAuth, clerkClient, verifyToken } = require('@clerk/express');
 
 /**
  * Middleware to require a valid Clerk auth session and check that HOD is approved.
@@ -14,18 +14,38 @@ const requireApprovedHod = async (req, res, next) => {
       auth = getAuth(req);
     }
 
+    let userId = auth?.userId;
+    let sessionClaims = auth?.sessionClaims;
+
+    // Fallback: verify Bearer token explicitly if getAuth(req) returns null userId
+    if (!userId && req.headers.authorization) {
+      const token = String(req.headers.authorization).replace(/^Bearer\s+/i, '').trim();
+      if (token && token !== 'null' && token !== 'undefined') {
+        try {
+          const verified = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+          if (verified && (verified.sub || verified.userId)) {
+            userId = verified.sub || verified.userId;
+            sessionClaims = verified;
+            auth = { userId, sessionClaims };
+          }
+        } catch (vErr) {
+          console.warn('[Clerk Token Verification Fallback Notice]:', vErr.message);
+        }
+      }
+    }
+
     // Check if authenticated
-    if (!auth || !auth.userId) {
+    if (!userId) {
       return res.status(401).json({
         success: false,
         error: 'Unauthorized: Authentication required.',
       });
     }
 
-    const userId = auth.userId;
+    const resolvedUserId = userId;
 
     // Attach auth data to req so downstream route handlers can access req.auth.userId
-    req.auth = auth;
+    req.auth = auth || { userId: resolvedUserId, sessionClaims };
 
     // In test environment, if mock metadata is passed via header or session, use it
     if (process.env.NODE_ENV === 'test' && req.headers['x-test-is-approved'] !== undefined) {
@@ -40,12 +60,12 @@ const requireApprovedHod = async (req, res, next) => {
     }
 
     // Check sessionClaims publicMetadata first
-    let isApproved = auth.sessionClaims?.metadata?.isApproved || auth.sessionClaims?.publicMetadata?.isApproved;
+    let isApproved = sessionClaims?.metadata?.isApproved || sessionClaims?.publicMetadata?.isApproved;
 
     // If metadata is not present in token claim, fetch user object directly from Clerk API
     if (isApproved === undefined && clerkClient) {
       try {
-        const user = await clerkClient.users.getUser(userId);
+        const user = await clerkClient.users.getUser(resolvedUserId);
         isApproved = user.publicMetadata?.isApproved === true;
       } catch (clerkErr) {
         console.error('[Clerk User Fetch Error]:', clerkErr.message);

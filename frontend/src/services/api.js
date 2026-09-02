@@ -54,18 +54,16 @@ export const getAnnouncementById = async (id) => {
  * Helper: Safely retrieve session token and retry request with fresh token on 401
  */
 const executeWithTokenRetry = async (getToken, apiCall) => {
-  let token = await getToken().catch(() => null);
+  let token = await getToken({ skipCache: true }).catch(() => null);
   if (!token) {
-    // Grace period for Clerk SDK to finish session initialization
+    token = await getToken().catch(() => null);
+  }
+  if (!token) {
     await new Promise((resolve) => setTimeout(resolve, 300));
     token = await getToken({ skipCache: true }).catch(() => null);
   }
   if (!token) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    token = await getToken({ skipCache: true }).catch(() => null);
-  }
-  if (!token) {
-    throw { response: { status: 401, data: { error: 'Your session token has expired or is out of sync. Please click "Retry Session" or "Sign Out & Re-login".' } } };
+    throw { response: { status: 401, data: { error: 'Authentication required. Please sign back in.' } } };
   }
 
   try {
