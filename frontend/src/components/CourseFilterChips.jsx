@@ -9,7 +9,6 @@ export const CourseFilterChips = ({ courses = [], activeCourse, onSelectCourse }
     { code: 'BFM', name: 'BCom Financial Markets' },
     { code: 'BMS', name: 'Bachelor of Management Studies' },
     { code: 'BSCIT', name: 'BSc Information Technology' },
-    { code: 'BSCCS', name: 'BSc Computer Science' },
     { code: 'MCOM', name: 'Master of Commerce' },
     { code: 'MSCFM', name: 'MSc Financial Mathematics' },
   ];

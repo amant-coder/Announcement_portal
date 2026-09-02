@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { getHodList, toggleHodApproval, getAllAnnouncementsAudit, assignHodCourses, getCourses } from '../services/api';
 
-const AVAILABLE_COURSES = ['BCOM', 'BAF', 'BBI', 'BFM', 'BMS', 'BSCIT', 'BSCCS', 'MCOM', 'MSCFM'];
+const AVAILABLE_COURSES = ['BCOM', 'BAF', 'BBI', 'BFM', 'BMS', 'BSCIT', 'MCOM', 'MSCFM'];
 
 export const SuperAdminDashboard = () => {
   const [adminSecret, setAdminSecret] = useState(

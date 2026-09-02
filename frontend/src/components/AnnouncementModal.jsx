@@ -99,7 +99,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     ? courses
     : [
       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' },
+      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'MCOM' }, { code: 'MSCFM' },
     ];
 
   // Filter available courses based on HOD permissions

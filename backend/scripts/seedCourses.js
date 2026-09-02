@@ -35,11 +35,6 @@ const initialCourses = [
     stream: 'Information Technology',
   },
   {
-    code: 'BSCCS',
-    name: 'BSc Computer Science',
-    stream: 'Computer Science',
-  },
-  {
     code: 'MCOM',
     name: 'Master of Commerce',
     stream: 'Post Graduation',

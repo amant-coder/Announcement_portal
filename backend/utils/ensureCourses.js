@@ -7,7 +7,6 @@ const defaultCourses = [
   { code: 'BFM', name: 'BCom Financial Markets', stream: 'Commerce' },
   { code: 'BMS', name: 'Bachelor of Management Studies', stream: 'Management' },
   { code: 'BSCIT', name: 'BSc Information Technology', stream: 'Information Technology' },
-  { code: 'BSCCS', name: 'BSc Computer Science', stream: 'Computer Science' },
   { code: 'MCOM', name: 'Master of Commerce', stream: 'Post Graduation' },
   { code: 'MSCFM', name: 'MSc Financial Mathematics', stream: 'Post Graduation' },
 ];
