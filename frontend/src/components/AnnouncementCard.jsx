@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pin, Calendar, FileText, Download, Edit3, Trash2, Tag, AlertCircle, Bookmark, ExternalLink, Bell, Clock, User, Building2, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { Pin, Calendar, FileText, Download, Edit3, Trash2, Tag, AlertCircle, Bookmark, ExternalLink, Bell, Clock, User, Building2, ChevronDown, ChevronUp, Share2, Users } from 'lucide-react';
 import { isBookmarked as checkIsBookmarked, toggleBookmark } from '../utils/bookmarks';
 import { TiltedCard } from './reactbits/TiltedCard';
 import { MagneticButton } from './reactbits/MagneticButton';
@@ -57,6 +57,7 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
     })
     : null;
 
+  const isCommittee = announcement.type === 'COMMITTEE' || announcement.type === 'EVENT';
   const isEvent = announcement.type === 'EVENT';
   const isTimetable = announcement.type === 'TIMETABLE';
   const authorName = postedByName || 'HOD';
@@ -90,37 +91,23 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
         className={`group bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full relative ${
           isPinned
             ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/10'
-            : isEvent
-            ? 'border-amber-200 dark:border-amber-900/60'
+            : isCommittee
+            ? 'border-purple-200 dark:border-purple-900/60'
             : 'border-slate-200 dark:border-slate-700'
         } ${announcement.status === 'DRAFT' ? 'opacity-80 border-dashed' : ''}`}
       >
       {/* ── Top Bar: College Branding + Type Badge ── */}
       <div className={`px-5 py-3 flex items-center justify-between ${
-        isEvent
-          ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+        isCommittee
+          ? 'bg-gradient-to-r from-purple-700 to-indigo-800'
           : 'bg-gradient-to-r from-college-navy to-slate-800'
       }`}>
-        {/* <div className="flex items-center space-x-2.5">
-          <div className={`p-1.5 rounded-lg ${isEvent ? 'bg-white/20' : 'bg-white/10'}`}>
-            <Building2 className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <p className="text-white font-heading font-bold text-xs sm:text-sm leading-tight tracking-tight">
-              Ghanshyamdas Saraf College
-            </p>
-            <p className="text-white/70 text-[10px] font-semibold uppercase tracking-wider">
-              {isEvent ? 'College Event' : 'Officil Notice'}
-            </p>
-          </div>
-        </div> */}
-
         <div className="flex items-center space-x-2">
           {/* Type Badge */}
-          {isEvent ? (
+          {isCommittee ? (
             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/20 text-white border border-white/30 flex items-center gap-1 backdrop-blur-sm">
-              <Calendar className="w-3 h-3" />
-              EVENT
+              <Users className="w-3 h-3" />
+              COMMITTEE NOTICE
             </span>
           ) : isTimetable ? (
             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white/20 text-white border border-white/30 flex items-center gap-1 backdrop-blur-sm">

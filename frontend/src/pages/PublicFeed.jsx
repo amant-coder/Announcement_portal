@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar, GraduationCap, ArrowUp, BellRing, Check, Loader2 } from 'lucide-react';
+import { Search, Bell, Layers, RefreshCw, AlertCircle, Bookmark, Calendar, GraduationCap, ArrowUp, BellRing, Check, Loader2, Users } from 'lucide-react';
 import { getCourses, getAnnouncements, getVapidPublicKey, subscribeNotifications, unsubscribeNotifications } from '../services/api';
 import { getBookmarks } from '../utils/bookmarks';
 import CourseFilterChips from '../components/CourseFilterChips';
@@ -54,8 +54,8 @@ export const PublicFeed = () => {
   // Sync selectedType with URL hash / search params when clicking Navbar links
   const applyHashFilter = () => {
     const hash = window.location.hash;
-    if (hash === '#events') {
-      setSelectedType('EVENT');
+    if (hash === '#committee' || hash === '#events') {
+      setSelectedType('COMMITTEE');
     } else if (hash === '#notices') {
       setSelectedType('NOTICE');
     } else if (hash === '#timetables') {
@@ -71,7 +71,7 @@ export const PublicFeed = () => {
     // Also check search params
     const params = new URLSearchParams(location.search);
     const typeParam = params.get('type');
-    if (typeParam && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(typeParam.toUpperCase())) {
+    if (typeParam && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE'].includes(typeParam.toUpperCase())) {
       setSelectedType(typeParam.toUpperCase());
     }
   }, [location.hash, location.search]);
@@ -265,7 +265,7 @@ export const PublicFeed = () => {
         onSelect={(typeId) => setSelectedType(typeId)}
         items={[
           { id: 'ALL', label: 'All Notices', icon: Layers },
-          { id: 'EVENT', label: 'Events', icon: Calendar },
+          { id: 'COMMITTEE', label: 'Committee Notices', icon: Users },
           { id: 'NOTICE', label: 'Academic Notices', icon: Bell },
           { id: 'TIMETABLE', label: 'Timetables', icon: RefreshCw },
         ]}
@@ -475,7 +475,7 @@ export const PublicFeed = () => {
                   >
                     {(courses.length > 0 ? courses : [
                       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BMM' }, { code: 'BA' }, { code: 'BSC' }
+                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' }
                     ]).map((c) => (
                       <option key={c.code} value={c.code}>{c.code}</option>
                     ))}

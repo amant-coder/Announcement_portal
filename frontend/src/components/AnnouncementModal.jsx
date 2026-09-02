@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties } from 'lucide-react';
+import { X, Upload, Pin, Calendar, AlertCircle, Loader2, FileCheck, Save, Lock, Bell, Clock, Trash2, Plus, TableProperties, Users } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { uploadFile } from '../services/upload';
@@ -83,7 +83,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
     ? courses
     : [
       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BMM' }, { code: 'BA' }, { code: 'BSC' },
+      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' },
     ];
 
   // Filter available courses based on HOD permissions
@@ -244,15 +244,15 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
 
               <button
                 type="button"
-                onClick={() => setType('EVENT')}
+                onClick={() => setType('COMMITTEE')}
                 className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center space-x-2 ${
-                  type === 'EVENT'
-                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm ring-2 ring-amber-400/40'
+                  type === 'COMMITTEE' || type === 'EVENT'
+                    ? 'bg-purple-700 text-white border-purple-800 shadow-sm ring-2 ring-purple-500/40'
                     : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
-                <Calendar className="w-4 h-4 text-amber-300" />
-                <span>College Event</span>
+                <Users className="w-4 h-4 text-purple-300" />
+                <span>Committee Notice</span>
               </button>
 
               <button

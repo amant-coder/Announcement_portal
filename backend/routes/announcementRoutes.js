@@ -98,9 +98,9 @@ router.get('/', async (req, res) => {
       $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
     };
 
-    // Filter by announcement type (NOTICE, EVENT, TIMETABLE) if provided
+    // Filter by announcement type (NOTICE, COMMITTEE, EVENT, TIMETABLE) if provided
     const categoryParam = req.query.category || req.query.type;
-    if (categoryParam && typeof categoryParam === 'string' && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(categoryParam.trim().toUpperCase())) {
+    if (categoryParam && typeof categoryParam === 'string' && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE'].includes(categoryParam.trim().toUpperCase())) {
       queryFilter.type = categoryParam.trim().toUpperCase();
     }
 
@@ -269,7 +269,7 @@ router.post(
     try {
       const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
       
-      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
+      const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
 
       if (targetType === 'TIMETABLE') {
         if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
@@ -424,7 +424,7 @@ router.put(
 
       const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
 
-      const targetType = type && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
+      const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
 
       if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {
         if (!Array.isArray(timetableEntries) || timetableEntries.length === 0) {
@@ -463,7 +463,7 @@ router.put(
       if (attachmentUrl !== undefined) announcement.attachmentUrl = attachmentUrl || null;
       if (expiresAt !== undefined) announcement.expiresAt = expiresAt ? new Date(expiresAt) : null;
       if (status !== undefined && ['DRAFT', 'PUBLISHED'].includes(status)) announcement.status = status;
-      if (type !== undefined && ['NOTICE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase())) {
+      if (type !== undefined && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE'].includes(String(type).toUpperCase())) {
         announcement.type = String(type).toUpperCase();
       }
 
