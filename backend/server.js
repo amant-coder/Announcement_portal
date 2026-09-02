@@ -57,7 +57,6 @@ webpush.setVapidDetails(
 console.log('[VAPID] Web Push configured with VAPID public key:', VAPID_KEYS.publicKey.substring(0, 20) + '...');
 
 app.set('vapidKeys', VAPID_KEYS);
-app.set('trust proxy', 1);
 
 // Disable X-Powered-By header for security obfuscation
 app.disable('x-powered-by');
