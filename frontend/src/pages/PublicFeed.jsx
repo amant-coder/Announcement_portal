@@ -405,16 +405,11 @@ export const PublicFeed = () => {
               </div>
               {[
                 { id: 'ALL', label: 'All Committees' },
-                { id: 'Placement', label: 'Placement Cell' },
-                { id: 'Cultural', label: 'Cultural Committee' },
-                { id: 'Student Council', label: 'Student Council' },
+                { id: 'CC', label: 'Cultural Council (CC)' },
                 { id: 'Sports', label: 'Sports Committee' },
-                { id: 'NCC', label: 'NCC' },
                 { id: 'NSS', label: 'NSS' },
+                { id: 'NCC', label: 'NCC' },
                 { id: 'DLLE', label: 'DLLE' },
-                { id: 'Rotaract', label: 'Rotaract Club' },
-                { id: 'Literary Committee', label: 'Literary Committee' },
-                { id: 'OBC/SC Cell', label: 'OBC/SC Cell' },
               ].map((comm) => {
                 const isActive = selectedCommittee === comm.id;
                 return (
