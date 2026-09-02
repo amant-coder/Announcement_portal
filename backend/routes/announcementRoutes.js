@@ -104,6 +104,12 @@ router.get('/', async (req, res) => {
       queryFilter.type = categoryParam.trim().toUpperCase();
     }
 
+    // Filter by committee if provided
+    const committeeParam = req.query.committee;
+    if (committeeParam && typeof committeeParam === 'string' && committeeParam.trim().toUpperCase() !== 'ALL') {
+      queryFilter.targetCommittees = committeeParam.trim();
+    }
+
     // Filter by date range if provided and valid
     const parsedStart = startDate && !isNaN(Date.parse(startDate)) ? new Date(startDate) : null;
     const parsedEnd = endDate && !isNaN(Date.parse(endDate)) ? new Date(endDate) : null;
@@ -267,7 +273,7 @@ router.post(
     }
 
     try {
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears, targetCommittees } = req.body;
       
       const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : 'NOTICE';
 
@@ -305,10 +311,7 @@ router.post(
       // Validate targetYears if provided
       const validYears = ['FY', 'SY', 'TY'];
       let resolvedYears = validYears; // default to all
-      if (targetYears !== undefined) {
-        if (!Array.isArray(targetYears) || targetYears.length === 0) {
-          return res.status(400).json({ success: false, error: 'targetYears must be a non-empty array of FY, SY, TY.' });
-        }
+      if (targetYears !== undefined && Array.isArray(targetYears) && targetYears.length > 0) {
         const normalized = targetYears.map((y) => String(y).trim().toUpperCase());
         const invalid = normalized.filter((y) => !validYears.includes(y));
         if (invalid.length > 0) {
@@ -348,6 +351,7 @@ router.post(
         type: targetType,
         timetableEntries: targetType === 'TIMETABLE' ? timetableEntries : undefined,
         targetYears: resolvedYears,
+        targetCommittees: Array.isArray(targetCommittees) ? targetCommittees.map(c => String(c).trim()) : [],
       });
 
       await newAnnouncement.save();
@@ -422,7 +426,7 @@ router.put(
         });
       }
 
-      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears } = req.body;
+      const { title, content, courseCodes, isPinned, attachmentUrl, expiresAt, status, type, timetableEntries, targetYears, targetCommittees } = req.body;
 
       const targetType = type && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY'].includes(String(type).toUpperCase()) ? String(type).toUpperCase() : announcement.type;
 
@@ -465,6 +469,9 @@ router.put(
       if (status !== undefined && ['DRAFT', 'PUBLISHED'].includes(status)) announcement.status = status;
       if (type !== undefined && ['NOTICE', 'COMMITTEE', 'EVENT', 'TIMETABLE', 'EMERGENCY'].includes(String(type).toUpperCase())) {
         announcement.type = String(type).toUpperCase();
+      }
+      if (targetCommittees !== undefined) {
+        announcement.targetCommittees = Array.isArray(targetCommittees) ? targetCommittees.map(c => String(c).trim()) : [];
       }
 
       if (targetType === 'TIMETABLE' && timetableEntries !== undefined) {

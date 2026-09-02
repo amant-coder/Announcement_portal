@@ -20,6 +20,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
 
   const [timetableEntries, setTimetableEntries] = useState([{ subject: '', date: '', time: '', room: '' }]);
   const [selectedYears, setSelectedYears] = useState(['FY', 'SY', 'TY']);
+  const [selectedCommittees, setSelectedCommittees] = useState([]);
   const [showPasteParser, setShowPasteParser] = useState(false);
   const [pasteData, setPasteData] = useState('');
 
@@ -27,6 +28,19 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const AVAILABLE_COMMITTEES = [
+    'Placement',
+    'Cultural',
+    'Student Council',
+    'Sports',
+    'NCC',
+    'NSS',
+    'DLLE',
+    'Rotaract',
+    'Literary Committee',
+    'OBC/SC Cell',
+  ];
 
   // Extract allowed courses for this HOD from Clerk publicMetadata
   const userAllowedCourses = user?.publicMetadata?.allowedCourses;
@@ -54,6 +68,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
         setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
       }
       setSelectedYears(initialData.targetYears && initialData.targetYears.length > 0 ? initialData.targetYears : ['FY', 'SY', 'TY']);
+      setSelectedCommittees(initialData.targetCommittees || []);
     } else {
       setTitle('');
       setContent('');
@@ -70,6 +85,7 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       setType('NOTICE');
       setTimetableEntries([{ subject: '', date: '', time: '', room: '' }]);
       setSelectedYears(['FY', 'SY', 'TY']);
+      setSelectedCommittees([]);
     }
     setFileToUpload(null);
     setErrorMsg('');
@@ -150,9 +166,16 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
       return;
     }
 
-    if (selectedYears.length === 0) {
-      setErrorMsg('Please select at least one target year (FY, SY, or TY).');
-      return;
+    if (type === 'COMMITTEE') {
+      if (selectedCommittees.length === 0) {
+        setErrorMsg('Please select at least one target committee tag.');
+        return;
+      }
+    } else {
+      if (selectedYears.length === 0) {
+        setErrorMsg('Please select at least one target year (FY, SY, or TY).');
+        return;
+      }
     }
 
     try {
@@ -180,7 +203,8 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
           ...e,
           date: new Date(e.date).toISOString()
         })) : undefined,
-        targetYears: selectedYears,
+        targetYears: type === 'COMMITTEE' ? [] : selectedYears,
+        targetCommittees: type === 'COMMITTEE' ? selectedCommittees : [],
       };
 
       await onSave(payload);
@@ -332,41 +356,76 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
             </div>
           </div>
 
-          {/* Target Year Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Target Year(s) *
-            </label>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-              Select which year's students should see this announcement.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {['FY', 'SY', 'TY'].map((yr) => {
-                const isSelected = selectedYears.includes(yr);
-                const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
-                return (
-                  <button
-                    type="button"
-                    key={yr}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedYears(selectedYears.filter((y) => y !== yr));
-                      } else {
-                        setSelectedYears([...selectedYears, yr]);
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
-                      }`}
-                  >
-                    {isSelected ? `✓ ${yr}` : `+ ${yr}`}
-                    <span className="font-normal opacity-70">{yearLabels[yr]}</span>
-                  </button>
-                );
-              })}
+          {/* Target Committee OR Target Year Selection */}
+          {type === 'COMMITTEE' ? (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Target Committee Tag(s) *
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                Select which committee(s) this notice belongs to.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_COMMITTEES.map((comm) => {
+                  const isSelected = selectedCommittees.includes(comm);
+                  return (
+                    <button
+                      type="button"
+                      key={comm}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCommittees(selectedCommittees.filter((c) => c !== comm));
+                        } else {
+                          setSelectedCommittees([...selectedCommittees, comm]);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${isSelected
+                          ? 'bg-purple-700 text-white border-purple-800 ring-2 ring-purple-500/40 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+                        }`}
+                    >
+                      {isSelected ? `✓ ${comm}` : `+ ${comm}`}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Target Year(s) *
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                Select which year's students should see this announcement.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {['FY', 'SY', 'TY'].map((yr) => {
+                  const isSelected = selectedYears.includes(yr);
+                  const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
+                  return (
+                    <button
+                      type="button"
+                      key={yr}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedYears(selectedYears.filter((y) => y !== yr));
+                        } else {
+                          setSelectedYears([...selectedYears, yr]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-slate-200 dark:hover:bg-slate-500'
+                        }`}
+                    >
+                      {isSelected ? `✓ ${yr}` : `+ ${yr}`}
+                      <span className="font-normal opacity-70">{yearLabels[yr]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Content Textarea OR Timetable Editor */}
           {type === 'TIMETABLE' ? (

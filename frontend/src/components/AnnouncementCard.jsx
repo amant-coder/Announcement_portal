@@ -189,7 +189,18 @@ export const AnnouncementCard = ({ announcement, isAdminView = false, onEdit, on
                 {code}
               </span>
             ))}
-            {announcement.targetYears && announcement.targetYears.length > 0 && announcement.targetYears.length < 3 && (
+            {announcement.targetCommittees && announcement.targetCommittees.length > 0 && (
+              announcement.targetCommittees.map((comm, index) => (
+                <span
+                  key={`comm-${comm}-${index}`}
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1"
+                >
+                  <Users className="w-3 h-3" />
+                  {comm}
+                </span>
+              ))
+            )}
+            {(!announcement.targetCommittees || announcement.targetCommittees.length === 0) && announcement.targetYears && announcement.targetYears.length > 0 && announcement.targetYears.length < 3 && (
               announcement.targetYears.map((yr, index) => (
                 <span
                   key={`yr-${yr}-${index}`}

@@ -68,10 +68,10 @@ const announcementSchema = new mongoose.Schema(
       type: [String],
       enum: ['FY', 'SY', 'TY'],
       default: ['FY', 'SY', 'TY'],
-      validate: {
-        validator: (arr) => Array.isArray(arr) && arr.length > 0,
-        message: 'At least one target year (FY, SY, or TY) is required.',
-      },
+    },
+    targetCommittees: {
+      type: [String],
+      default: [],
     },
     type: {
       type: String,

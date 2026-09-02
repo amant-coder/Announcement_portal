@@ -38,6 +38,7 @@ export const PublicFeed = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedYear, setSelectedYear] = useState('ALL');
+  const [selectedCommittee, setSelectedCommittee] = useState('ALL');
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isCalendarMode, setIsCalendarMode] = useState(false);
 
@@ -237,11 +238,14 @@ export const PublicFeed = () => {
     item.type === 'EMERGENCY' || /emergency|heavy\s*rain|holiday|postponed|urgent\s*alert|disaster/i.test(item.title)
   );
 
-  // Filter displayed items if "Winners Gallery" or "Bookmarks Only" is selected
+  // Filter displayed items if "Winners Gallery", "Committee Filter", or "Bookmarks Only" is selected
   const displayedAnnouncements = announcements.filter((item) => {
     if (showBookmarksOnly && !bookmarkedIds.includes(item._id)) return false;
     if (selectedType === 'WINNERS') {
       return /winner|trophy|champion|first\s*prize|second\s*prize|award|achievement|medal/i.test(item.title + ' ' + (item.content || ''));
+    }
+    if (selectedType === 'COMMITTEE' && selectedCommittee !== 'ALL') {
+      return item.targetCommittees && item.targetCommittees.includes(selectedCommittee);
     }
     return true;
   });
@@ -391,35 +395,75 @@ export const PublicFeed = () => {
           onSelectCourse={(code) => setSelectedCourse(code)}
         />
 
-        {/* Year Filter Chips */}
-        <div className="w-full overflow-x-auto py-2 scrollbar-none">
-          <div className="flex items-center space-x-2 min-w-max">
-            <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
-              <GraduationCap className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-              Year:
+        {/* Committee OR Year Filter Chips */}
+        {selectedType === 'COMMITTEE' ? (
+          <div className="w-full overflow-x-auto py-2 scrollbar-none">
+            <div className="flex items-center space-x-2 min-w-max">
+              <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
+                <Users className="w-3.5 h-3.5 mr-1 text-purple-500" />
+                Committee:
+              </div>
+              {[
+                { id: 'ALL', label: 'All Committees' },
+                { id: 'Placement', label: 'Placement Cell' },
+                { id: 'Cultural', label: 'Cultural Committee' },
+                { id: 'Student Council', label: 'Student Council' },
+                { id: 'Sports', label: 'Sports Committee' },
+                { id: 'NCC', label: 'NCC' },
+                { id: 'NSS', label: 'NSS' },
+                { id: 'DLLE', label: 'DLLE' },
+                { id: 'Rotaract', label: 'Rotaract Club' },
+                { id: 'Literary Committee', label: 'Literary Committee' },
+                { id: 'OBC/SC Cell', label: 'OBC/SC Cell' },
+              ].map((comm) => {
+                const isActive = selectedCommittee === comm.id;
+                return (
+                  <button
+                    key={comm.id}
+                    onClick={() => setSelectedCommittee(comm.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
+                      isActive
+                        ? 'bg-purple-700 dark:bg-purple-600 text-white border-purple-800 dark:border-purple-500 shadow-md ring-2 ring-purple-400/40 scale-105'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={comm.label}
+                  >
+                    {comm.id === 'ALL' ? comm.label : comm.id}
+                  </button>
+                );
+              })}
             </div>
-            {[{ id: 'ALL', label: 'All Years' }, { id: 'FY', label: 'First Year' }, { id: 'SY', label: 'Second Year' }, { id: 'TY', label: 'Third Year' }].map((yr) => {
-              const isActive = selectedYear === yr.id;
-              return (
-                <button
-                  key={yr.id}
-                  onClick={() => setSelectedYear(yr.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
-                    isActive
-                      ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-700 dark:border-emerald-400 shadow-md ring-2 ring-emerald-400/40 scale-105'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
-                  }`}
-                  title={yr.label}
-                >
-                  {yr.id === 'ALL' ? yr.id : yr.id}
-                  <span className="ml-1.5 opacity-60 font-normal hidden lg:inline">
-                    • {yr.label}
-                  </span>
-                </button>
-              );
-            })}
           </div>
-        </div>
+        ) : (
+          <div className="w-full overflow-x-auto py-2 scrollbar-none">
+            <div className="flex items-center space-x-2 min-w-max">
+              <div className="flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider pr-2">
+                <GraduationCap className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                Year:
+              </div>
+              {[{ id: 'ALL', label: 'All Years' }, { id: 'FY', label: 'First Year' }, { id: 'SY', label: 'Second Year' }, { id: 'TY', label: 'Third Year' }].map((yr) => {
+                const isActive = selectedYear === yr.id;
+                return (
+                  <button
+                    key={yr.id}
+                    onClick={() => setSelectedYear(yr.id)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 shadow-sm border ${
+                      isActive
+                        ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-700 dark:border-emerald-400 shadow-md ring-2 ring-emerald-400/40 scale-105'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={yr.label}
+                  >
+                    {yr.id === 'ALL' ? yr.id : yr.id}
+                    <span className="ml-1.5 opacity-60 font-normal hidden lg:inline">
+                      • {yr.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Announcements Feed Section */}
