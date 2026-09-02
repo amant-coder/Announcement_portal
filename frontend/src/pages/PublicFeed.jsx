@@ -635,7 +635,7 @@ export const PublicFeed = () => {
                   >
                     {(courses.length > 0 ? courses : [
                       { code: 'BCOM' }, { code: 'BAF' }, { code: 'BBI' }, { code: 'BFM' },
-                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'BSCCS' }, { code: 'MCOM' }, { code: 'MSCFM' }
+                      { code: 'BMS' }, { code: 'BSCIT' }, { code: 'MCOM' }, { code: 'MSCFM' }
                     ]).map((c) => (
                       <option key={c.code} value={c.code}>{c.code}</option>
                     ))}

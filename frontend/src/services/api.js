@@ -56,12 +56,23 @@ export const getAnnouncementById = async (id) => {
 const executeWithTokenRetry = async (getToken, apiCall) => {
   let token = await getToken().catch(() => null);
   if (!token) {
+    // Grace period for Clerk SDK to finish session initialization
+    await new Promise((resolve) => setTimeout(resolve, 300));
     token = await getToken({ skipCache: true }).catch(() => null);
   }
+  if (!token) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    token = await getToken({ skipCache: true }).catch(() => null);
+  }
+  if (!token) {
+    throw { response: { status: 401, data: { error: 'Your session token has expired or is out of sync. Please click "Retry Session" or "Sign Out & Re-login".' } } };
+  }
+
   try {
     return await apiCall(token);
   } catch (err) {
     if (err.response?.status === 401) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
       const freshToken = await getToken({ skipCache: true }).catch(() => null);
       if (freshToken) {
         return await apiCall(freshToken);
