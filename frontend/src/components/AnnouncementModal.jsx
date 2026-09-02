@@ -349,6 +349,30 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* ALL Courses Option */}
+              {(() => {
+                const isAllCoursesSelected = availableCourseList.length > 0 && availableCourseList.every((c) => selectedCourses.includes(c.code));
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAllCoursesSelected) {
+                        setSelectedCourses([]);
+                      } else {
+                        setSelectedCourses(availableCourseList.map((c) => c.code));
+                      }
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${
+                      isAllCoursesSelected
+                        ? 'bg-college-navy text-college-gold border-college-navy ring-2 ring-college-gold/40 shadow-sm'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {isAllCoursesSelected ? '✓ ALL (All Courses)' : '+ ALL (All Courses)'}
+                  </button>
+                );
+              })()}
+
               {/* Individual Course Buttons */}
               {availableCourseList.map((course) => {
                 const isSelected = selectedCourses.includes(course.code);
@@ -379,6 +403,30 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                 Select which committee(s) this notice belongs to.
               </p>
               <div className="flex flex-wrap gap-2">
+                {/* ALL Committees Option */}
+                {(() => {
+                  const isAllCommitteesSelected = AVAILABLE_COMMITTEES.length > 0 && AVAILABLE_COMMITTEES.every((c) => selectedCommittees.includes(c));
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAllCommitteesSelected) {
+                          setSelectedCommittees([]);
+                        } else {
+                          setSelectedCommittees([...AVAILABLE_COMMITTEES]);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${
+                        isAllCommitteesSelected
+                          ? 'bg-purple-700 text-white border-purple-800 ring-2 ring-purple-500/40 shadow-sm'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {isAllCommitteesSelected ? '✓ ALL (All Committees)' : '+ ALL (All Committees)'}
+                    </button>
+                  );
+                })()}
+
                 {AVAILABLE_COMMITTEES.map((comm) => {
                   const isSelected = selectedCommittees.includes(comm);
                   return (
@@ -412,6 +460,30 @@ export const AnnouncementModal = ({ isOpen, onClose, onSave, initialData = null,
                 Select which year's students should see this announcement.
               </p>
               <div className="flex flex-wrap gap-2">
+                {/* ALL Years Option */}
+                {(() => {
+                  const isAllYearsSelected = ['FY', 'SY', 'TY'].every((y) => selectedYears.includes(y));
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAllYearsSelected) {
+                          setSelectedYears([]);
+                        } else {
+                          setSelectedYears(['FY', 'SY', 'TY']);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                        isAllYearsSelected
+                          ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400/40 shadow-sm'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {isAllYearsSelected ? '✓ ALL (All Years)' : '+ ALL (All Years)'}
+                    </button>
+                  );
+                })()}
+
                 {['FY', 'SY', 'TY'].map((yr) => {
                   const isSelected = selectedYears.includes(yr);
                   const yearLabels = { FY: 'First Year', SY: 'Second Year', TY: 'Third Year' };
