@@ -7,7 +7,7 @@ import AnnouncementModal from '../components/AnnouncementModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 export const AdminDashboard = () => {
-  const { getToken, signOut } = useAuth();
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
   const { user } = useUser();
 
   const [announcements, setAnnouncements] = useState([]);
@@ -57,6 +57,8 @@ export const AdminDashboard = () => {
   useEffect(() => {
     let isMounted = true;
 
+    if (!isLoaded) return;
+
     const initDashboard = async () => {
       if (user && typeof user.reload === 'function') {
         try {
@@ -79,7 +81,7 @@ export const AdminDashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [user?.id]);
+  }, [isLoaded, user?.id]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -225,16 +227,25 @@ export const AdminDashboard = () => {
         {error && (
           <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{error}</span>
             </div>
-            <button
-              onClick={handleSignOutAndRelogin}
-              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-sm flex items-center space-x-1.5 shrink-0 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out & Re-login</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={fetchDashboardData}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Retry Session</span>
+              </button>
+              <button
+                onClick={handleSignOutAndRelogin}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out & Re-login</span>
+              </button>
+            </div>
           </div>
         )}
 
